@@ -15,6 +15,9 @@ import { Route as FavoritesRouteImport } from './routes/favorites'
 import { Route as DrinksRouteImport } from './routes/drinks'
 import { Route as CookbookRouteImport } from './routes/cookbook'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OutIndexRouteImport } from './routes/out.index'
+import { Route as DrinksIndexRouteImport } from './routes/drinks.index'
+import { Route as CookbookIndexRouteImport } from './routes/cookbook.index'
 import { Route as OutIdRouteImport } from './routes/out.$id'
 import { Route as DrinksIdRouteImport } from './routes/drinks.$id'
 import { Route as CookbookIdRouteImport } from './routes/cookbook.$id'
@@ -49,6 +52,21 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OutIndexRoute = OutIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => OutRoute,
+} as any)
+const DrinksIndexRoute = DrinksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DrinksRoute,
+} as any)
+const CookbookIndexRoute = CookbookIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CookbookRoute,
+} as any)
 const OutIdRoute = OutIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -75,17 +93,20 @@ export interface FileRoutesByFullPath {
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
+  '/cookbook/': typeof CookbookIndexRoute
+  '/drinks/': typeof DrinksIndexRoute
+  '/out/': typeof OutIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/cookbook': typeof CookbookRouteWithChildren
-  '/drinks': typeof DrinksRouteWithChildren
   '/favorites': typeof FavoritesRoute
   '/new': typeof NewRoute
-  '/out': typeof OutRouteWithChildren
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
+  '/cookbook': typeof CookbookIndexRoute
+  '/drinks': typeof DrinksIndexRoute
+  '/out': typeof OutIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +119,9 @@ export interface FileRoutesById {
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
+  '/cookbook/': typeof CookbookIndexRoute
+  '/drinks/': typeof DrinksIndexRoute
+  '/out/': typeof OutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,17 +135,20 @@ export interface FileRouteTypes {
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
+    | '/cookbook/'
+    | '/drinks/'
+    | '/out/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/cookbook'
-    | '/drinks'
     | '/favorites'
     | '/new'
-    | '/out'
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
+    | '/cookbook'
+    | '/drinks'
+    | '/out'
   id:
     | '__root__'
     | '/'
@@ -133,6 +160,9 @@ export interface FileRouteTypes {
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
+    | '/cookbook/'
+    | '/drinks/'
+    | '/out/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -188,6 +218,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/out/': {
+      id: '/out/'
+      path: '/'
+      fullPath: '/out/'
+      preLoaderRoute: typeof OutIndexRouteImport
+      parentRoute: typeof OutRoute
+    }
+    '/drinks/': {
+      id: '/drinks/'
+      path: '/'
+      fullPath: '/drinks/'
+      preLoaderRoute: typeof DrinksIndexRouteImport
+      parentRoute: typeof DrinksRoute
+    }
+    '/cookbook/': {
+      id: '/cookbook/'
+      path: '/'
+      fullPath: '/cookbook/'
+      preLoaderRoute: typeof CookbookIndexRouteImport
+      parentRoute: typeof CookbookRoute
+    }
     '/out/$id': {
       id: '/out/$id'
       path: '/$id'
@@ -214,10 +265,12 @@ declare module '@tanstack/react-router' {
 
 interface CookbookRouteChildren {
   CookbookIdRoute: typeof CookbookIdRoute
+  CookbookIndexRoute: typeof CookbookIndexRoute
 }
 
 const CookbookRouteChildren: CookbookRouteChildren = {
   CookbookIdRoute: CookbookIdRoute,
+  CookbookIndexRoute: CookbookIndexRoute,
 }
 
 const CookbookRouteWithChildren = CookbookRoute._addFileChildren(
@@ -226,10 +279,12 @@ const CookbookRouteWithChildren = CookbookRoute._addFileChildren(
 
 interface DrinksRouteChildren {
   DrinksIdRoute: typeof DrinksIdRoute
+  DrinksIndexRoute: typeof DrinksIndexRoute
 }
 
 const DrinksRouteChildren: DrinksRouteChildren = {
   DrinksIdRoute: DrinksIdRoute,
+  DrinksIndexRoute: DrinksIndexRoute,
 }
 
 const DrinksRouteWithChildren =
@@ -237,10 +292,12 @@ const DrinksRouteWithChildren =
 
 interface OutRouteChildren {
   OutIdRoute: typeof OutIdRoute
+  OutIndexRoute: typeof OutIndexRoute
 }
 
 const OutRouteChildren: OutRouteChildren = {
   OutIdRoute: OutIdRoute,
+  OutIndexRoute: OutIndexRoute,
 }
 
 const OutRouteWithChildren = OutRoute._addFileChildren(OutRouteChildren)
