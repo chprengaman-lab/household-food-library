@@ -1,0 +1,180 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* === Midnight Kitchen palette === */
+  --color-noir: #0C0D0A;          /* near-black, slight green undertone */
+  --color-graphite: #151712;      /* primary surface */
+  --color-slate: #1E211B;         /* raised surface */
+  --color-bone: #F2E8D5;          /* warm ivory ink */
+  --color-bone-dim: #C9BFAB;      /* secondary text */
+  --color-saffron: #E8A33D;       /* electric accent */
+  --color-brass: #C9A66B;         /* metallic accent (ratings) */
+  --color-oxblood: #8A2A1F;       /* deep red (warn / destructive) */
+  --color-moss: #586C4B;          /* dim supporting */
+
+  /* Legacy aliases so older components remap cleanly */
+  --color-paper: var(--color-bone);
+  --color-ink: var(--color-bone);
+  --color-cream: var(--color-slate);
+  --color-linen: var(--color-slate);
+  --color-forest: var(--color-saffron);
+  --color-forest-deep: var(--color-graphite);
+  --color-terracotta: var(--color-saffron);
+  --color-sienna: var(--color-saffron);
+  --color-walnut: var(--color-bone-dim);
+  --color-sage: var(--color-moss);
+  --color-olive: var(--color-moss);
+  --color-blush: var(--color-slate);
+
+  --font-display: "Fraunces", "Playfair Display", Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  --radius: 0.875rem;
+
+  --background: #0C0D0A;
+  --foreground: #F2E8D5;
+  --card: #151712;
+  --card-foreground: #F2E8D5;
+  --popover: #151712;
+  --popover-foreground: #F2E8D5;
+  --primary: #E8A33D;
+  --primary-foreground: #0C0D0A;
+  --secondary: #1E211B;
+  --secondary-foreground: #F2E8D5;
+  --muted: #1E211B;
+  --muted-foreground: #C9BFAB;
+  --accent: #C9A66B;
+  --accent-foreground: #0C0D0A;
+  --destructive: #8A2A1F;
+  --destructive-foreground: #F2E8D5;
+  --border: rgba(242, 232, 213, 0.10);
+  --input: #1E211B;
+  --ring: #E8A33D;
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body {
+    background-color: var(--color-noir);
+    color: var(--color-bone);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  /* Film grain + warm vignette */
+  body {
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(232, 163, 61, 0.07) 0%, transparent 55%),
+      radial-gradient(80% 60% at 100% 110%, rgba(88, 108, 75, 0.08) 0%, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.91  0 0 0 0 0.83  0 0 0 0.035 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size: 100% 100%, 100% 100%, 240px 240px;
+    background-attachment: fixed, fixed, fixed;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.02em;
+    color: var(--color-bone);
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .lining { font-variant-numeric: lining-nums tabular-nums; }
+
+  /* Magazine-style selection */
+  ::selection { background: var(--color-saffron); color: var(--color-noir); }
+}
+
+/* === Utility classes that components reference === */
+
+@utility hairline {
+  border-bottom: 1px solid color-mix(in oklab, var(--color-bone) 18%, transparent);
+}
+
+@utility rule-bone {
+  background: linear-gradient(to right, var(--color-bone), var(--color-bone)) center/100% 1px no-repeat;
+}
+
+@utility card-paper {
+  background:
+    linear-gradient(180deg, rgba(242, 232, 213, 0.02) 0%, transparent 100%),
+    var(--color-graphite);
+  border: 1px solid rgba(242, 232, 213, 0.08);
+  box-shadow:
+    0 1px 0 rgba(242, 232, 213, 0.04) inset,
+    0 18px 40px -28px rgba(0, 0, 0, 0.7);
+}
+
+@utility card-forest {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(232, 163, 61, 0.18) 0%, transparent 55%),
+    linear-gradient(180deg, #1E211B 0%, #0F1110 100%);
+  color: var(--color-bone);
+  border: 1px solid rgba(232, 163, 61, 0.18);
+  box-shadow: 0 20px 40px -28px rgba(0, 0, 0, 0.75);
+}
+
+@utility card-journal {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 32px,
+      rgba(242, 232, 213, 0.05) 32px 33px
+    ),
+    var(--color-graphite);
+  border: 1px solid rgba(242, 232, 213, 0.08);
+  box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.7);
+}
+
+@utility ribbon-accent { position: relative; }
+
+@utility brass-rule {
+  background: linear-gradient(90deg,
+    rgba(201, 166, 107, 0) 0%,
+    rgba(201, 166, 107, 0.85) 20%,
+    rgba(201, 166, 107, 0.85) 80%,
+    rgba(201, 166, 107, 0) 100%
+  );
+}
+
+@utility deckle { -webkit-mask-image: radial-gradient(circle at 50% 100%, transparent 4px, #000 5px); }
+
+/* Editorial slab tag */
+@utility folio {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-saffron);
+}
