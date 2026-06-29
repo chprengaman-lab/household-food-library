@@ -76,7 +76,11 @@ function Favorites() {
                     params={{ id: d.id }}
                     className="card-forest block overflow-hidden rounded-lg"
                   >
-                    <EmptyArt kind={d.drinkKind === "espresso" ? "espresso" : "drink"} className="h-28 w-full" />
+                    {d.photo ? (
+                      <img src={d.photo} alt={d.name} className="h-28 w-full object-cover" />
+                    ) : (
+                      <EmptyArt kind={d.drinkKind === "espresso" ? "espresso" : "drink"} className="h-28 w-full" />
+                    )}
                     <div className="p-4">
                       <p className="folio mb-1 text-saffron">{drinkKindLabel[d.drinkKind]}</p>
                       <h3 className="font-display text-lg text-bone">{d.name}</h3>

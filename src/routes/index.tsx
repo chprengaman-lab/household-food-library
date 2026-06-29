@@ -124,7 +124,11 @@ function Library() {
                 params={{ id: favorites[0].id } as any}
                 className="card-paper col-span-6 block overflow-hidden rounded-lg"
               >
-                <EmptyArt kind={artKind(favorites[0])} className="h-44 w-full rounded-none" />
+                {favorites[0].photo ? (
+                  <img src={favorites[0].photo} alt={favorites[0].name} className="h-44 w-full rounded-none object-cover" />
+                ) : (
+                  <EmptyArt kind={artKind(favorites[0])} className="h-44 w-full rounded-none" />
+                )}
                 <div className="p-5">
                   <p className="folio mb-2">Top of the list</p>
                   <h3 className="font-display text-3xl leading-tight text-bone">{favorites[0].name}</h3>
@@ -139,7 +143,11 @@ function Library() {
                 params={{ id: it.id } as any}
                 className="card-paper col-span-3 block overflow-hidden rounded-lg"
               >
-                <EmptyArt kind={artKind(it)} className="h-24 w-full rounded-none" />
+                {it.photo ? (
+                  <img src={it.photo} alt={it.name} className="h-24 w-full rounded-none object-cover" />
+                ) : (
+                  <EmptyArt kind={artKind(it)} className="h-24 w-full rounded-none" />
+                )}
                 <div className="p-3">
                   <h4 className="line-clamp-2 font-display text-base leading-tight text-bone">{it.name}</h4>
                   <div className="mt-2"><MiniRating r={it} /></div>
@@ -342,9 +350,13 @@ function RecipeFeatureCard({ r, idx, full = false }: { r: Recipe; idx?: number; 
       className={`card-paper group block overflow-hidden rounded-lg transition-transform hover:-translate-y-0.5 ${full ? "w-full" : "w-[230px] shrink-0"}`}
     >
       <div className="relative">
-        <EmptyArt kind="recipe" className="h-32 w-full" />
+        {r.photo ? (
+          <img src={r.photo} alt={r.name} className="h-32 w-full object-cover" />
+        ) : (
+          <EmptyArt kind="recipe" className="h-32 w-full" />
+        )}
         {idx != null && (
-          <span className="tnum lining absolute left-3 top-3 font-display text-2xl text-saffron">
+          <span className="tnum lining absolute left-3 top-3 font-display text-2xl text-saffron drop-shadow-sm">
             {String(idx).padStart(2, "0")}
           </span>
         )}
@@ -370,7 +382,11 @@ function DrinkFeatureCard({ d, full = false }: { d: Drink; full?: boolean }) {
       params={{ id: d.id }}
       className={`card-forest block overflow-hidden rounded-lg ${full ? "w-full" : "w-[220px] shrink-0"}`}
     >
-      <EmptyArt kind={isEsp ? "espresso" : "drink"} className="h-32 w-full" />
+      {d.photo ? (
+        <img src={d.photo} alt={d.name} className="h-32 w-full object-cover" />
+      ) : (
+        <EmptyArt kind={isEsp ? "espresso" : "drink"} className="h-32 w-full" />
+      )}
       <div className="p-4">
         <p className="folio mb-1.5 text-saffron">{drinkKindLabel[d.drinkKind]}</p>
         <h3 className="line-clamp-2 font-display text-[20px] leading-tight text-bone">{d.name}</h3>
@@ -409,7 +425,11 @@ function RestaurantEditorial({ r, highlight }: { r: Restaurant; highlight?: stri
           </p>
           {hit && <p className="mt-2 text-xs italic text-saffron">↳ {hit.name}</p>}
         </div>
-        <EmptyArt kind="restaurant" className="h-16 w-16 shrink-0 rounded-md" />
+        {r.photo ? (
+          <img src={r.photo} alt={r.name} className="h-16 w-16 shrink-0 rounded-md object-cover" />
+        ) : (
+          <EmptyArt kind="restaurant" className="h-16 w-16 shrink-0 rounded-md" />
+        )}
       </div>
       <div className="brass-rule mt-4 h-px opacity-50" />
       <div className="mt-4"><MiniRating r={r} /></div>

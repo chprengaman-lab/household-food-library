@@ -321,6 +321,27 @@ function NotesPaste({ onFill }: { onFill: (n: string) => void }) {
 }
 
 /* ===== Photo upload field ===== */
+
+function compressImage(file: File, maxPx: number, quality: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export function PhotoField({
   value,
   onChange,
@@ -336,7 +357,12 @@ export function PhotoField({
       <label className="group block cursor-pointer">
         <div className="relative h-44 w-full overflow-hidden rounded-md border border-dashed border-bone/20 bg-graphite">
           {value ? (
-            <img src={value} alt="" className="h-full w-full object-cover" />
+            <>
+              <img src={value} alt="" className="h-full w-full object-cover" />
+              <div className="absolute inset-0 grid place-items-center bg-noir/50 opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="folio rounded-full bg-saffron px-3 py-1.5 text-noir">Replace photo</span>
+              </div>
+            </>
           ) : (
             <div className="absolute inset-0">
               <EmptyArt kind={kind} className="h-full w-full rounded-none border-0" />
@@ -353,9 +379,11 @@ export function PhotoField({
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (!f) return;
-            const reader = new FileReader();
-            reader.onload = () => onChange(typeof reader.result === "string" ? reader.result : undefined);
-            reader.readAsDataURL(f);
+            compressImage(f, 1200, 0.75).then(onChange).catch(() => {
+              const reader = new FileReader();
+              reader.onload = () => onChange(typeof reader.result === "string" ? reader.result : undefined);
+              reader.readAsDataURL(f);
+            });
           }}
         />
       </label>
