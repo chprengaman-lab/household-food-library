@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { RotateCcw, Trash2 } from "lucide-react";
+import { LogOut, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { clearAll, restoreSeed } from "@/lib/store";
+import { signOut, supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Chloe & Chase" }] }),
@@ -11,8 +13,49 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setEmail(user?.email ?? null);
+    });
+  }, []);
+
+  async function handleSignOut() {
+    await signOut();
+    toast.success("Signed out.");
+  }
+
   return (
     <AppShell title="Settings" kicker="Preferences">
+
+      {/* Account — only shown when Supabase auth is configured */}
+      {supabase && (
+        <section className="mb-8 space-y-3">
+          <div className="mb-5">
+            <h2 className="font-display text-2xl text-bone">Account</h2>
+            {email && (
+              <p className="folio mt-1 text-bone-dim">Signed in as {email}</p>
+            )}
+          </div>
+
+          <button
+            onClick={handleSignOut}
+            className="flex w-full items-center gap-4 rounded-2xl border border-bone/10 bg-graphite px-5 py-4 text-left transition-colors hover:border-bone/20"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-noir/60">
+              <LogOut className="h-5 w-5 text-bone-dim" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-bone">Sign Out</p>
+              <p className="text-xs text-bone-dim">Return to the sign-in screen</p>
+            </div>
+          </button>
+        </section>
+      )}
+
+      {/* Demo Data */}
       <section className="space-y-3">
         <div className="mb-5">
           <h2 className="font-display text-2xl text-bone">Demo Data</h2>
@@ -21,7 +64,6 @@ function SettingsPage() {
           </p>
         </div>
 
-        {/* Reset */}
         <ActionRow
           icon={<Trash2 className="h-5 w-5 text-destructive" />}
           label="Reset Demo Data"
@@ -43,7 +85,6 @@ function SettingsPage() {
           }}
         />
 
-        {/* Restore */}
         <ActionRow
           icon={<RotateCcw className="h-5 w-5 text-saffron" />}
           label="Restore Demo Data"
@@ -60,6 +101,13 @@ function SettingsPage() {
           }}
         />
       </section>
+
+      {/* Storage note */}
+      <div className="mt-8 rounded-2xl border border-bone/8 bg-graphite/50 px-5 py-4">
+        <p className="text-xs leading-relaxed text-bone-dim">
+          <span className="font-semibold text-bone">Data is stored locally on this device</span> until cloud sync is added. Clearing browser data or switching devices will not carry your library over.
+        </p>
+      </div>
 
       <div className="brass-rule mt-10 h-px opacity-40" />
 
