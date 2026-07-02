@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { AppShell } from "@/components/AppShell";
@@ -8,14 +9,15 @@ import {
   Field, TextInput, TextArea, Pill, AutofillBox, Label, RatingDial, HouseholdReadout, TagChip, Stepper, PhotoField,
 } from "@/components/bits";
 import {
-  addRecipe, addDrink, addRestaurant, addRestaurantItem,
-  updateRecipe, updateDrink, updateRestaurant, useStore,
+  addRecipe, addDrink, addRestaurant, addRestaurantItem, addPantryItem,
+  updateRecipe, updateDrink, updateRestaurant, updatePantryItem, useStore,
   type Difficulty, type Portion, type DrinkKind, drinkKindLabel,
+  PANTRY_CATEGORIES, type PantryCategory,
 } from "@/lib/store";
-import { parseNotes, applyAutofill } from "@/lib/autofill";
+import { generateRecipeDraft, generateDrinkDraft, generateRestaurantDraft } from "@/lib/ai";
 
 const search = z.object({
-  type: fallback(z.enum(["recipe", "drink", "restaurant"]), "recipe").default("recipe"),
+  type: fallback(z.enum(["recipe", "drink", "restaurant", "pantry"]), "recipe").default("recipe"),
   edit: fallback(z.string().optional(), undefined).default(undefined),
 });
 
@@ -27,20 +29,22 @@ export const Route = createFileRoute("/new")({
 
 function NewItem() {
   const { type, edit } = Route.useSearch();
-  const { recipes, drinks, restaurants } = useStore();
+  const { recipes, drinks, restaurants, pantryItems } = useStore();
   const navigate = useNavigate();
 
   const existing = useMemo(() => {
     if (!edit) return undefined;
     return recipes.find((r) => r.id === edit)
       ?? drinks.find((d) => d.id === edit)
+      ?? pantryItems.find((p) => p.id === edit)
       ?? restaurants.find((r) => r.id === edit);
-  }, [edit, recipes, drinks, restaurants]);
+  }, [edit, recipes, drinks, restaurants, pantryItems]);
 
   const editing = !!existing;
   const titleFor =
     type === "recipe" ? (editing ? "Edit Recipe" : "Add Recipe")
     : type === "drink" ? (editing ? "Edit Drink" : "Add Drink")
+    : type === "pantry" ? (editing ? "Edit Pantry Item" : "Add Pantry Item")
     : (editing ? "Edit Restaurant Visit" : "Add Restaurant Visit");
 
   return (
@@ -51,10 +55,10 @@ function NewItem() {
 
       {!editing && (
         <div className="mb-5 flex gap-1 rounded-md border border-bone/15 bg-graphite p-1">
-          {(["recipe", "drink", "restaurant"] as const).map((t) => (
+          {(["recipe", "drink", "restaurant", "pantry"] as const).map((t) => (
             <Link key={t} to="/new" search={{ type: t }} replace
               className={`flex-1 rounded py-2 text-center text-xs font-semibold uppercase tracking-[0.14em] transition-colors ${type === t ? "bg-saffron text-noir" : "text-bone-dim"}`}>
-              {t === "recipe" ? "Recipe" : t === "drink" ? "Drink" : "Restaurant"}
+              {t === "recipe" ? "Recipe" : t === "drink" ? "Drink" : t === "restaurant" ? "Restaurant" : "Pantry"}
             </Link>
           ))}
         </div>
@@ -63,6 +67,7 @@ function NewItem() {
       {type === "recipe" && <RecipeForm existing={existing as any} onDone={(id) => navigate({ to: "/cookbook/$id", params: { id } })} />}
       {type === "drink" && <DrinkForm existing={existing as any} onDone={(id) => navigate({ to: "/drinks/$id", params: { id } })} />}
       {type === "restaurant" && <RestaurantForm existing={existing as any} onDone={(id) => navigate({ to: "/out/$id", params: { id } })} />}
+      {type === "pantry" && <PantryForm existing={existing as any} onDone={(id) => navigate({ to: "/pantry/$id", params: { id } })} />}
     </AppShell>
   );
 }
@@ -88,28 +93,22 @@ function RecipeForm({ existing, onDone }: { existing?: any; onDone: (id: string)
     existing?.lastMade ? new Date(existing.lastMade).toISOString().slice(0, 10) : ""
   );
   const [wouldMakeAgain, setWouldMakeAgain] = useState<boolean>(!!existing?.wouldMakeAgain);
+  const [aiGeneratedFields, setAiGeneratedFields] = useState<string[]>(existing?.aiGeneratedFields ?? []);
 
-  function autofill(text: string) {
-    const p = parseNotes(text);
-    const out = applyAutofill({
-      ingredients: ingredients ? ingredients.split("\n").filter(Boolean) : [],
-      instructions: instructions ? instructions.split("\n").filter(Boolean) : [],
-      calories: calories ? Number(calories) : undefined,
-      protein: protein ? Number(protein) : undefined,
-      difficulty: difficulty || undefined,
-      portion: portion || undefined,
-      cuisine: cuisine || undefined,
-      tags: tagText ? tagText.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
-    }, p);
-    if (out.ingredients) setIngredients(out.ingredients.join("\n"));
-    if (out.instructions) setInstructions(out.instructions.join("\n"));
-    if (out.calories != null) setCalories(String(out.calories));
-    if (out.protein != null) setProtein(String(out.protein));
-    if (out.difficulty) setDifficulty(out.difficulty);
-    if (out.portion) setPortion(out.portion);
-    if (out.cuisine) setCuisine(out.cuisine);
-    if (out.tags?.length) setTagText(out.tags.join(", "));
-    if (!notes) setNotes(text);
+  async function autofill(text: string) {
+    const draft = await generateRecipeDraft(text);
+    const filled: string[] = [];
+    if (draft.name && !name) { setName(draft.name); filled.push("name"); }
+    if (draft.ingredients?.length && !ingredients.trim()) { setIngredients(draft.ingredients.join("\n")); filled.push("ingredients"); }
+    if (draft.instructions?.length && !instructions.trim()) { setInstructions(draft.instructions.join("\n")); filled.push("instructions"); }
+    if (draft.notes && !notes) { setNotes(draft.notes); filled.push("notes"); }
+    if (draft.calories != null && !calories) { setCalories(String(draft.calories)); filled.push("calories"); }
+    if (draft.protein != null && !protein) { setProtein(String(draft.protein)); filled.push("protein"); }
+    if (draft.difficulty && !difficulty) { setDifficulty(draft.difficulty); filled.push("difficulty"); }
+    if (draft.portion && !portion) { setPortion(draft.portion); filled.push("portion"); }
+    if (draft.cuisine && !cuisine) { setCuisine(draft.cuisine); filled.push("cuisine"); }
+    if (draft.tags?.length && !tagText.trim()) { setTagText(draft.tags.join(", ")); filled.push("tags"); }
+    if (filled.length > 0) setAiGeneratedFields((prev) => [...new Set([...prev, ...filled])]);
   }
 
   function submit(e: React.FormEvent) {
@@ -131,9 +130,10 @@ function RecipeForm({ existing, onDone }: { existing?: any; onDone: (id: string)
       lastMade: lastMade ? new Date(lastMade).getTime() : undefined,
       wouldMakeAgain,
       needsReview,
+      aiGeneratedFields: aiGeneratedFields.length > 0 ? aiGeneratedFields : undefined,
     };
-    if (existing) { updateRecipe(existing.id, payload); onDone(existing.id); }
-    else { const r = addRecipe(payload as any); onDone(r.id); }
+    if (existing) { updateRecipe(existing.id, payload); toast.success("Recipe updated"); onDone(existing.id); }
+    else { const r = addRecipe(payload as any); toast.success("Recipe saved"); onDone(r.id); }
   }
 
   return (
@@ -141,11 +141,15 @@ function RecipeForm({ existing, onDone }: { existing?: any; onDone: (id: string)
       <PhotoField value={photo} onChange={setPhoto} kind="recipe" />
       <AutofillBox onFill={autofill} />
 
-      <Field label="Name"><TextInput value={name} onChange={(e) => setName(e.target.value)} required placeholder="Garlicky Lemon Chicken" /></Field>
+      <Field label="Name"><TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="Garlicky Lemon Chicken" /></Field>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Calories per serving"><TextInput inputMode="numeric" value={calories} onChange={(e) => setCalories(e.target.value)} placeholder="520" /></Field>
-        <Field label="Protein per serving (g)"><TextInput inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} placeholder="42" /></Field>
+        <Field label="Calories per serving">
+          <TextInput inputMode="numeric" value={calories} onChange={(e) => { setCalories(e.target.value); setAiGeneratedFields((f) => f.filter((x) => x !== "calories")); }} placeholder="520" />
+        </Field>
+        <Field label="Protein per serving (g)">
+          <TextInput inputMode="numeric" value={protein} onChange={(e) => { setProtein(e.target.value); setAiGeneratedFields((f) => f.filter((x) => x !== "protein")); }} placeholder="42" />
+        </Field>
       </div>
 
       <Field label="Difficulty">
@@ -234,18 +238,26 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
   // ingredients/instructions
   const [ingredients, setIngredients] = useState<string>(existing?.ingredients?.join("\n") ?? "");
   const [instructions, setInstructions] = useState<string>(existing?.instructions?.join("\n") ?? "");
+  const [aiGeneratedFields, setAiGeneratedFields] = useState<string[]>(existing?.aiGeneratedFields ?? []);
 
-  function autofill(text: string) {
-    const p = parseNotes(text);
-    const out = applyAutofill({
-      ingredients: ingredients ? ingredients.split("\n").filter(Boolean) : [],
-      instructions: instructions ? instructions.split("\n").filter(Boolean) : [],
-      tags: tagText ? tagText.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
-    }, p);
-    if (out.ingredients) setIngredients(out.ingredients.join("\n"));
-    if (out.instructions) setInstructions(out.instructions.join("\n"));
-    if (out.tags?.length) setTagText(out.tags.join(", "));
-    if (!tasteNotes) setTasteNotes(text);
+  async function autofill(text: string) {
+    const draft = await generateDrinkDraft(text);
+    const filled: string[] = [];
+    if (draft.name && !name) { setName(draft.name); filled.push("name"); }
+    if (draft.drinkKind) { setKind(draft.drinkKind); filled.push("drinkKind"); }
+    if (draft.tasteNotes && !tasteNotes) { setTasteNotes(draft.tasteNotes); filled.push("tasteNotes"); }
+    if (draft.ingredients?.length && !ingredients.trim()) { setIngredients(draft.ingredients.join("\n")); filled.push("ingredients"); }
+    if (draft.instructions?.length && !instructions.trim()) { setInstructions(draft.instructions.join("\n")); filled.push("instructions"); }
+    if (draft.tags?.length && !tagText.trim()) { setTagText(draft.tags.join(", ")); filled.push("tags"); }
+    if (draft.espresso) {
+      if (draft.espresso.bean && !bean) { setBean(draft.espresso.bean); filled.push("bean"); }
+      if (draft.espresso.doseG != null && !dose) { setDose(String(draft.espresso.doseG)); filled.push("doseG"); }
+      if (draft.espresso.yieldG != null && !yieldG) { setYieldG(String(draft.espresso.yieldG)); filled.push("yieldG"); }
+      if (draft.espresso.brewTimeSec != null && !brewTime) { setBrewTime(String(draft.espresso.brewTimeSec)); filled.push("brewTimeSec"); }
+      if (draft.espresso.grindSetting && !grind) { setGrind(draft.espresso.grindSetting); filled.push("grindSetting"); }
+      if (draft.espresso.milk && !milk) { setMilk(draft.espresso.milk); filled.push("milk"); }
+    }
+    if (filled.length > 0) setAiGeneratedFields((prev) => [...new Set([...prev, ...filled])]);
   }
 
   function submit(e: React.FormEvent) {
@@ -257,6 +269,7 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
       chaseRating: chase, chloeRating: chloe,
       ingredients: ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
       instructions: instructions.split("\n").map((s) => s.trim()).filter(Boolean),
+      aiGeneratedFields: aiGeneratedFields.length > 0 ? aiGeneratedFields : undefined,
     };
     if (kind === "espresso") {
       payload.espresso = {
@@ -268,8 +281,8 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
         milk: milk || undefined,
       };
     }
-    if (existing) { updateDrink(existing.id, payload); onDone(existing.id); }
-    else { const d = addDrink(payload); onDone(d.id); }
+    if (existing) { updateDrink(existing.id, payload); toast.success("Drink updated"); onDone(existing.id); }
+    else { const d = addDrink(payload); toast.success("Drink saved"); onDone(d.id); }
   }
 
   return (
@@ -285,7 +298,7 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
         </div>
       </Field>
 
-      <Field label="Name"><TextInput value={name} onChange={(e) => setName(e.target.value)} required placeholder={kind === "espresso" ? "Morning Cortado" : "Mezcal Paloma"} /></Field>
+      <Field label="Name"><TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder={kind === "espresso" ? "Morning Cortado" : "Mezcal Paloma"} /></Field>
 
       {kind === "espresso" && (
         <div className="space-y-3 rounded-md border border-bone/10 bg-graphite p-4">
@@ -332,7 +345,12 @@ interface DraftItem { name: string; notes: string; chaseRating?: number; chloeRa
 
 function RestaurantForm({ existing, onDone }: { existing?: any; onDone: (id: string) => void }) {
   const [name, setName] = useState(existing?.name ?? "");
-  const [location, setLocation] = useState(existing?.location ?? "");
+  const [city, setCity] = useState(existing?.city ?? "");
+  const [state, setState] = useState(existing?.state ?? "");
+  const [country, setCountry] = useState(existing?.country ?? "");
+  const [visitDate, setVisitDate] = useState<string>(
+    existing?.visitDate ? new Date(existing.visitDate).toISOString().slice(0, 10) : ""
+  );
   const [photo, setPhoto] = useState<string | undefined>(existing?.photo);
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [tagText, setTagText] = useState(((existing?.tags ?? []) as string[]).join(", "));
@@ -342,22 +360,30 @@ function RestaurantForm({ existing, onDone }: { existing?: any; onDone: (id: str
   const [dishes, setDishes] = useState<DraftItem[]>([]);
   const [drinkItems, setDrinkItems] = useState<DraftItem[]>([]);
 
-  function autofill(text: string) {
-    if (!notes) setNotes(text);
-    const p = parseNotes(text);
-    const out = applyAutofill({
-      tags: tagText ? tagText.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
-    }, { tags: p.tags });
-    if (out.tags?.length) setTagText(out.tags.join(", "));
+  async function autofill(text: string) {
+    const draft = await generateRestaurantDraft(text);
+    if (draft.name && !name) setName(draft.name);
+    if (draft.city && !city) setCity(draft.city);
+    if (draft.state && !state) setState(draft.state);
+    if (draft.country && !country) setCountry(draft.country);
+    if (draft.notes && !notes) setNotes(draft.notes);
+    if (draft.tags?.length && !tagText.trim()) setTagText(draft.tags.join(", "));
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     const tags = tagText.split(",").map((t: string) => t.trim()).filter(Boolean);
-    const payload = { name: name.trim(), location, photo, notes, tags, chaseRating: chase, chloeRating: chloe, wouldReturn };
+    const payload = {
+      name: name.trim(), photo, notes, tags, chaseRating: chase, chloeRating: chloe, wouldReturn,
+      city: city.trim() || undefined,
+      state: state.trim() || undefined,
+      country: country.trim() || undefined,
+      visitDate: visitDate ? new Date(visitDate).getTime() : undefined,
+    };
     if (existing) {
       updateRestaurant(existing.id, payload);
+      toast.success("Restaurant updated");
       onDone(existing.id);
     } else {
       const r = addRestaurant(payload as any);
@@ -367,6 +393,7 @@ function RestaurantForm({ existing, onDone }: { existing?: any; onDone: (id: str
       drinkItems.filter((d) => d.name.trim()).forEach((d) => addRestaurantItem(r.id, "drinks", {
         name: d.name.trim(), notes: d.notes || undefined, chaseRating: d.chaseRating, chloeRating: d.chloeRating, wouldOrderAgain: d.wouldOrderAgain,
       }));
+      toast.success("Restaurant saved");
       onDone(r.id);
     }
   }
@@ -376,8 +403,16 @@ function RestaurantForm({ existing, onDone }: { existing?: any; onDone: (id: str
       <PhotoField value={photo} onChange={setPhoto} kind="restaurant" />
       <AutofillBox onFill={autofill} />
 
-      <Field label="Restaurant name"><TextInput value={name} onChange={(e) => setName(e.target.value)} required placeholder="Carbone" /></Field>
-      <Field label="Location"><TextInput value={location} onChange={(e) => setLocation(e.target.value)} placeholder="New York, NY" /></Field>
+      <Field label="Restaurant name"><TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="Carbone" /></Field>
+
+      <Field label="City" hint="Required for search">
+        <TextInput value={city} onChange={(e) => setCity(e.target.value)} placeholder="New York" />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="State / Region"><TextInput value={state} onChange={(e) => setState(e.target.value)} placeholder="NY" /></Field>
+        <Field label="Country"><TextInput value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Leave blank if US" /></Field>
+      </div>
+      <Field label="Visit Date"><TextInput type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} /></Field>
 
       <div className="space-y-3 rounded-md border border-bone/10 bg-graphite p-4">
         <RatingDial label="Chase rating" value={chase} onChange={setChase} />
@@ -475,12 +510,138 @@ function DraftItemList({
   );
 }
 
+// ---------- Pantry ----------
+function PantryForm({ existing, onDone }: { existing?: any; onDone: (id: string) => void }) {
+  const [name, setName] = useState(existing?.name ?? "");
+  const [photo, setPhoto] = useState<string | undefined>(existing?.photo);
+  const [brand, setBrand] = useState(existing?.brand ?? "");
+  const [stores, setStores] = useState<string[]>(existing?.stores ?? []);
+  const [category, setCategory] = useState<PantryCategory>(existing?.category ?? "Other");
+  const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [tagText, setTagText] = useState(((existing?.tags ?? []) as string[]).join(", "));
+  const [chase, setChase] = useState<number | undefined>(existing?.chaseRating);
+  const [chloe, setChloe] = useState<number | undefined>(existing?.chloeRating);
+  const [wouldBuyAgain, setWouldBuyAgain] = useState<boolean>(!!existing?.wouldBuyAgain);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    const tags = tagText.split(",").map((t: string) => t.trim()).filter(Boolean);
+    const payload = {
+      name: name.trim(), photo,
+      brand: brand.trim() || undefined,
+      stores, category, notes, tags,
+      chaseRating: chase, chloeRating: chloe, wouldBuyAgain,
+    };
+    if (existing) { updatePantryItem(existing.id, payload); toast.success("Pantry item updated"); onDone(existing.id); }
+    else { const p = addPantryItem(payload as any); toast.success("Pantry item saved"); onDone(p.id); }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <PhotoField value={photo} onChange={setPhoto} kind="pantry" />
+
+      <Field label="Item name">
+        <TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="Calabrian Chili Paste" />
+      </Field>
+
+      <Field label="Brand">
+        <TextInput value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Tutto Calabria" />
+      </Field>
+
+      <Field label="Category">
+        <div className="-mx-1 flex flex-wrap gap-1.5 px-1">
+          {PANTRY_CATEGORIES.map((c) => (
+            <Pill key={c} on={category === c} onClick={() => setCategory(c)}>{c}</Pill>
+          ))}
+        </div>
+      </Field>
+
+      <Field label="Available At">
+        <StoreSelector value={stores} onChange={setStores} />
+      </Field>
+
+      <Field label="Tags" hint="Comma-separated">
+        <TextInput value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="organic, staple, dairy-free" />
+      </Field>
+
+      <div className="space-y-3 rounded-md border border-bone/10 bg-graphite p-4">
+        <RatingDial label="Chase rating" value={chase} onChange={setChase} />
+        <RatingDial label="Chloe rating" value={chloe} onChange={setChloe} />
+        <HouseholdReadout r={{ chaseRating: chase, chloeRating: chloe }} />
+      </div>
+
+      <Field label="Notes">
+        <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Why it's a household staple, when to use it…" />
+      </Field>
+
+      <Field label="Would buy again">
+        <Pill on={wouldBuyAgain} onClick={() => setWouldBuyAgain(!wouldBuyAgain)}>
+          {wouldBuyAgain ? "★ Yes, again" : "Mark would buy again"}
+        </Pill>
+      </Field>
+
+      <SaveButton />
+    </form>
+  );
+}
+
 function SaveButton() {
   return (
     <div className="sticky bottom-24 z-30 -mx-5 border-t border-bone/15 bg-noir/95 px-5 py-3 backdrop-blur">
       <button type="submit" className="h-12 w-full rounded-md bg-saffron text-base font-bold uppercase tracking-[0.14em] text-noir hover:opacity-90 transition-opacity">
         Save
       </button>
+    </div>
+  );
+}
+
+const COMMON_STORES = [
+  "Costco", "Publix", "Harris Teeter", "Trader Joe's",
+  "Whole Foods", "Walmart", "Target",
+];
+
+function StoreSelector({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [custom, setCustom] = useState("");
+  const customStores = value.filter((s) => !COMMON_STORES.includes(s));
+
+  function toggle(s: string) {
+    onChange(value.includes(s) ? value.filter((x) => x !== s) : [...value, s]);
+  }
+
+  function addCustom(e: React.FormEvent) {
+    e.preventDefault();
+    const v = custom.trim();
+    if (!v || value.includes(v)) { setCustom(""); return; }
+    onChange([...value, v]);
+    setCustom("");
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5">
+        {COMMON_STORES.map((s) => (
+          <Pill key={s} on={value.includes(s)} onClick={() => toggle(s)}>{s}</Pill>
+        ))}
+      </div>
+      {customStores.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {customStores.map((s) => (
+            <span key={s} className="inline-flex items-center gap-1 rounded-full bg-saffron/10 px-2.5 py-1 text-xs text-bone">
+              {s}
+              <button type="button" onClick={() => onChange(value.filter((x) => x !== s))} className="ml-0.5 text-bone-dim hover:text-saffron">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <form onSubmit={addCustom} className="flex gap-2">
+        <TextInput value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Other store…" />
+        <button type="submit" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-saffron text-noir">
+          <Plus className="h-4 w-4" />
+        </button>
+      </form>
     </div>
   );
 }

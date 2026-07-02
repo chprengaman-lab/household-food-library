@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2, Pencil } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { bumpTimesMade, deleteRecipe, updateRecipe, useStore, householdRating } from "@/lib/store";
-import { EmptyArt, HouseholdReadout, RatingDial, ReviewBadge, Stepper, TagChip, WarningNotes, Field, TextArea, Pill, Label } from "@/components/bits";
+import { EmptyArt, HouseholdReadout, RatingDial, ReviewBadge, Stepper, TagChip, WarningNotes, Field, TextArea, Pill, Label, AiBadge, FavoriteBadges, ConfirmDelete } from "@/components/bits";
 import { relTime } from "./cookbook";
 
 export const Route = createFileRoute("/cookbook/$id")({
@@ -31,8 +31,11 @@ function RecipeDetail() {
         <Link to="/cookbook" className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"><ArrowLeft className="h-4 w-4" /> Cookbook</Link>
         <div className="flex items-center gap-2">
           <Link to="/new" search={{ type: "recipe", edit: r.id }} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-cream px-3 text-xs font-semibold text-ink"><Pencil className="h-3.5 w-3.5" /> Edit</Link>
-          <button onClick={() => { if (confirm("Delete this recipe?")) { deleteRecipe(r.id); navigate({ to: "/cookbook" }); } }}
-            className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+          <ConfirmDelete
+            name={r.name}
+            onConfirm={() => { deleteRecipe(r.id); navigate({ to: "/cookbook" }); }}
+            trigger={<button className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+          />
         </div>
       </div>
 
@@ -46,9 +49,24 @@ function RecipeDetail() {
         {r.needsReview && <ReviewBadge />}
       </div>
       <h1 className="font-display text-[34px] leading-tight text-ink">{r.name}</h1>
-      <p className="mt-1 text-sm text-ink/60 tnum">
-        {[r.cuisine, r.calories && `${r.calories} cal`, r.protein && `${r.protein}g protein`, r.difficulty, r.portion].filter(Boolean).join(" · ")}
-      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-ink/60 tnum">
+        {r.cuisine && <span>{r.cuisine}</span>}
+        {r.calories != null && (
+          <span className="flex items-center gap-1.5">
+            {r.calories} cal
+            {r.aiGeneratedFields?.includes("calories") && <AiBadge />}
+          </span>
+        )}
+        {r.protein != null && (
+          <span className="flex items-center gap-1.5">
+            {r.protein}g protein
+            {r.aiGeneratedFields?.includes("protein") && <AiBadge />}
+          </span>
+        )}
+        {r.difficulty && <span>{r.difficulty}</span>}
+        {r.portion && <span>{r.portion}</span>}
+      </div>
+      <div className="mt-3"><FavoriteBadges r={r} /></div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-cream p-4">

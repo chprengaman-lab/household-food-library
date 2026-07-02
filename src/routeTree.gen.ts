@@ -9,19 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PantryRouteImport } from './routes/pantry'
 import { Route as OutRouteImport } from './routes/out'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as FavoritesRouteImport } from './routes/favorites'
 import { Route as DrinksRouteImport } from './routes/drinks'
 import { Route as CookbookRouteImport } from './routes/cookbook'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PantryIndexRouteImport } from './routes/pantry.index'
 import { Route as OutIndexRouteImport } from './routes/out.index'
 import { Route as DrinksIndexRouteImport } from './routes/drinks.index'
 import { Route as CookbookIndexRouteImport } from './routes/cookbook.index'
+import { Route as PantryIdRouteImport } from './routes/pantry.$id'
 import { Route as OutIdRouteImport } from './routes/out.$id'
 import { Route as DrinksIdRouteImport } from './routes/drinks.$id'
 import { Route as CookbookIdRouteImport } from './routes/cookbook.$id'
 
+const PantryRoute = PantryRouteImport.update({
+  id: '/pantry',
+  path: '/pantry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OutRoute = OutRouteImport.update({
   id: '/out',
   path: '/out',
@@ -52,6 +60,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PantryIndexRoute = PantryIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PantryRoute,
+} as any)
 const OutIndexRoute = OutIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -66,6 +79,11 @@ const CookbookIndexRoute = CookbookIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => CookbookRoute,
+} as any)
+const PantryIdRoute = PantryIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PantryRoute,
 } as any)
 const OutIdRoute = OutIdRouteImport.update({
   id: '/$id',
@@ -90,12 +108,15 @@ export interface FileRoutesByFullPath {
   '/favorites': typeof FavoritesRoute
   '/new': typeof NewRoute
   '/out': typeof OutRouteWithChildren
+  '/pantry': typeof PantryRouteWithChildren
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
+  '/pantry/$id': typeof PantryIdRoute
   '/cookbook/': typeof CookbookIndexRoute
   '/drinks/': typeof DrinksIndexRoute
   '/out/': typeof OutIndexRoute
+  '/pantry/': typeof PantryIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -104,9 +125,11 @@ export interface FileRoutesByTo {
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
+  '/pantry/$id': typeof PantryIdRoute
   '/cookbook': typeof CookbookIndexRoute
   '/drinks': typeof DrinksIndexRoute
   '/out': typeof OutIndexRoute
+  '/pantry': typeof PantryIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,12 +139,15 @@ export interface FileRoutesById {
   '/favorites': typeof FavoritesRoute
   '/new': typeof NewRoute
   '/out': typeof OutRouteWithChildren
+  '/pantry': typeof PantryRouteWithChildren
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
+  '/pantry/$id': typeof PantryIdRoute
   '/cookbook/': typeof CookbookIndexRoute
   '/drinks/': typeof DrinksIndexRoute
   '/out/': typeof OutIndexRoute
+  '/pantry/': typeof PantryIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,12 +158,15 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/new'
     | '/out'
+    | '/pantry'
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
+    | '/pantry/$id'
     | '/cookbook/'
     | '/drinks/'
     | '/out/'
+    | '/pantry/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -146,9 +175,11 @@ export interface FileRouteTypes {
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
+    | '/pantry/$id'
     | '/cookbook'
     | '/drinks'
     | '/out'
+    | '/pantry'
   id:
     | '__root__'
     | '/'
@@ -157,12 +188,15 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/new'
     | '/out'
+    | '/pantry'
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
+    | '/pantry/$id'
     | '/cookbook/'
     | '/drinks/'
     | '/out/'
+    | '/pantry/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -172,10 +206,18 @@ export interface RootRouteChildren {
   FavoritesRoute: typeof FavoritesRoute
   NewRoute: typeof NewRoute
   OutRoute: typeof OutRouteWithChildren
+  PantryRoute: typeof PantryRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/pantry': {
+      id: '/pantry'
+      path: '/pantry'
+      fullPath: '/pantry'
+      preLoaderRoute: typeof PantryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/out': {
       id: '/out'
       path: '/out'
@@ -218,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pantry/': {
+      id: '/pantry/'
+      path: '/'
+      fullPath: '/pantry/'
+      preLoaderRoute: typeof PantryIndexRouteImport
+      parentRoute: typeof PantryRoute
+    }
     '/out/': {
       id: '/out/'
       path: '/'
@@ -238,6 +287,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/cookbook/'
       preLoaderRoute: typeof CookbookIndexRouteImport
       parentRoute: typeof CookbookRoute
+    }
+    '/pantry/$id': {
+      id: '/pantry/$id'
+      path: '/$id'
+      fullPath: '/pantry/$id'
+      preLoaderRoute: typeof PantryIdRouteImport
+      parentRoute: typeof PantryRoute
     }
     '/out/$id': {
       id: '/out/$id'
@@ -302,6 +358,19 @@ const OutRouteChildren: OutRouteChildren = {
 
 const OutRouteWithChildren = OutRoute._addFileChildren(OutRouteChildren)
 
+interface PantryRouteChildren {
+  PantryIdRoute: typeof PantryIdRoute
+  PantryIndexRoute: typeof PantryIndexRoute
+}
+
+const PantryRouteChildren: PantryRouteChildren = {
+  PantryIdRoute: PantryIdRoute,
+  PantryIndexRoute: PantryIndexRoute,
+}
+
+const PantryRouteWithChildren =
+  PantryRoute._addFileChildren(PantryRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CookbookRoute: CookbookRouteWithChildren,
@@ -309,6 +378,7 @@ const rootRouteChildren: RootRouteChildren = {
   FavoritesRoute: FavoritesRoute,
   NewRoute: NewRoute,
   OutRoute: OutRouteWithChildren,
+  PantryRoute: PantryRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

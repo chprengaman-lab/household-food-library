@@ -1,12 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Coffee, Utensils, Heart, Library as LibIcon } from "lucide-react";
+import { BookOpen, Coffee, Utensils, Heart, Library as LibIcon, ShoppingBag } from "lucide-react";
 import type { ReactNode } from "react";
 
 const tabs = [
   { to: "/", label: "Library", icon: LibIcon },
   { to: "/cookbook", label: "Cookbook", icon: BookOpen },
-  { to: "/drinks", label: "Drink Lab", icon: Coffee },
+  { to: "/drinks", label: "Drinks", icon: Coffee },
   { to: "/out", label: "Going Out", icon: Utensils },
+  { to: "/pantry", label: "Pantry", icon: ShoppingBag },
   { to: "/favorites", label: "Favorites", icon: Heart },
 ] as const;
 

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyArt, MiniRating, SectionTitle } from "@/components/bits";
-import { useStore, householdRating, drinkKindLabel } from "@/lib/store";
+import { useStore, householdRating, drinkKindLabel, restaurantLocation } from "@/lib/store";
 
 export const Route = createFileRoute("/favorites")({
   head: () => ({
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/favorites")({
 });
 
 function Favorites() {
-  const { recipes, drinks, restaurants } = useStore();
+  const { recipes, drinks, restaurants, pantryItems } = useStore();
 
   const favs = useMemo(() => {
     const fr = recipes.filter((r) => (householdRating(r) ?? 0) >= 4.5 || r.wouldMakeAgain);
@@ -25,17 +25,18 @@ function Favorites() {
         (householdRating(r) ?? 0) >= 4.5 ||
         [...r.dishes, ...r.drinks].some((i) => i.wouldOrderAgain),
     );
-    return { fr, fd, fres };
-  }, [recipes, drinks, restaurants]);
+    const fp = pantryItems.filter((p) => (householdRating(p) ?? 0) >= 4.5 || p.wouldBuyAgain);
+    return { fr, fd, fres, fp };
+  }, [recipes, drinks, restaurants, pantryItems]);
 
-  const total = favs.fr.length + favs.fd.length + favs.fres.length;
+  const total = favs.fr.length + favs.fd.length + favs.fres.length + favs.fp.length;
 
   return (
     <AppShell title="Favorites">
       {total === 0 ? (
         <div className="rounded-md border border-dashed border-bone/15 bg-graphite/60 p-12 text-center">
           <p className="font-display text-2xl text-bone">No favorites yet</p>
-          <p className="folio mt-2">Rate 4.5+ or mark "would make again"</p>
+          <p className="folio mt-2">Rate 4.5+ or mark "would make/buy again"</p>
         </div>
       ) : (
         <>
@@ -103,10 +104,40 @@ function Favorites() {
                     params={{ id: r.id }}
                     className="card-journal block overflow-hidden rounded-lg p-5"
                   >
-                    <p className="folio">{r.location}</p>
+                    <p className="folio">{restaurantLocation(r) || r.name}</p>
                     <h3 className="mt-1 font-display text-2xl italic text-bone">{r.name}</h3>
                     <div className="brass-rule mt-4 h-px opacity-50" />
                     <div className="mt-3"><MiniRating r={r} /></div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {favs.fp.length > 0 && (
+            <section className="mb-12">
+              <SectionTitle kicker="Pantry" number="04">Worth buying again</SectionTitle>
+              <div className="space-y-2">
+                {favs.fp.map((p) => (
+                  <Link
+                    key={p.id}
+                    to="/pantry/$id"
+                    params={{ id: p.id }}
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-saffron/30"
+                  >
+                    {p.photo ? (
+                      <img src={p.photo} alt={p.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <EmptyArt kind="pantry" className="h-12 w-12 shrink-0 rounded-lg" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-1.5">
+                        <h3 className="truncate font-display text-base text-bone">{p.name}</h3>
+                        {p.wouldBuyAgain && <span className="shrink-0 text-[11px] text-saffron">★</span>}
+                      </div>
+                      <p className="folio">{p.brand ? `${p.brand} · ` : ""}{p.category}</p>
+                    </div>
+                    <MiniRating r={p} />
                   </Link>
                 ))}
               </div>

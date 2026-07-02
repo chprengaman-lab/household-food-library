@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyArt, MiniRating, TagChip } from "@/components/bits";
-import { useStore, householdRating, type RestaurantItem } from "@/lib/store";
+import { useStore, householdRating, restaurantLocation, type RestaurantItem } from "@/lib/store";
 
 export const Route = createFileRoute("/out/")({
   head: () => ({
@@ -54,7 +54,7 @@ function GoingOut() {
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="folio">{r.location ?? "Restaurant"}</p>
+                      <p className="folio">{restaurantLocation(r) ? `📍 ${restaurantLocation(r)}` : "Restaurant"}</p>
                       <h3 className="mt-1 font-display text-[32px] italic leading-[1] text-bone">{r.name}</h3>
                       {r.tags.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5">

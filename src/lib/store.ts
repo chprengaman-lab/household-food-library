@@ -9,6 +9,13 @@ export interface Ratings {
   chloeRating?: number;
 }
 
+export interface AiMeta {
+  generatedAt: number;
+  generatedBy: "Anthropic";
+  model: string;
+  promptVersion: number;
+}
+
 export interface Recipe extends Ratings {
   id: string;
   kind: "recipe";
@@ -28,6 +35,8 @@ export interface Recipe extends Ratings {
   lastMade?: number;
   wouldMakeAgain?: boolean;
   needsReview?: boolean;
+  aiGeneratedFields?: string[];
+  aiMeta?: AiMeta;
   createdAt: number;
 }
 
@@ -52,6 +61,8 @@ export interface Drink extends Ratings {
   espresso?: EspressoFields;
   tags: string[];
   needsReview?: boolean;
+  aiGeneratedFields?: string[];
+  aiMeta?: AiMeta;
   createdAt: number;
 }
 
@@ -66,7 +77,11 @@ export interface Restaurant extends Ratings {
   id: string;
   kind: "restaurant";
   name: string;
-  location?: string;
+  /** @deprecated use city/state/country */ location?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  visitDate?: number;
   photo?: string;
   notes?: string;
   tags: string[];
@@ -76,7 +91,32 @@ export interface Restaurant extends Ratings {
   createdAt: number;
 }
 
-export type AnyItem = Recipe | Drink | Restaurant;
+export type PantryCategory =
+  | "Coffee" | "Dairy" | "Meat" | "Sauce" | "Bread"
+  | "Produce" | "Frozen" | "Pantry" | "Beverage" | "Seasoning" | "Other";
+
+export const PANTRY_CATEGORIES: PantryCategory[] = [
+  "Coffee", "Dairy", "Meat", "Sauce", "Bread",
+  "Produce", "Frozen", "Pantry", "Beverage", "Seasoning", "Other",
+];
+
+export interface PantryItem extends Ratings {
+  id: string;
+  kind: "pantry";
+  name: string;
+  photo?: string;
+  brand?: string;
+  stores: string[];
+  category: PantryCategory;
+  notes?: string;
+  tags: string[];
+  wouldBuyAgain?: boolean;
+  aiGeneratedFields?: string[];
+  aiMeta?: AiMeta;
+  createdAt: number;
+}
+
+export type AnyItem = Recipe | Drink | Restaurant | PantryItem;
 
 const KEY = "cookbook-v1";
 
@@ -86,7 +126,7 @@ function uid() {
     : Math.random().toString(36).slice(2);
 }
 
-function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[] } {
+function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]; pantryItems: PantryItem[] } {
   const now = Date.now();
   return {
     recipes: [
@@ -142,7 +182,7 @@ function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]
     ],
     restaurants: [
       {
-        id: uid(), kind: "restaurant", name: "Carbone", location: "New York, NY",
+        id: uid(), kind: "restaurant", name: "Carbone", city: "New York", state: "NY",
         notes: "Worth the hype. Save for special nights.",
         tags: ["italian", "date night"],
         chaseRating: 5, chloeRating: 5,
@@ -156,7 +196,7 @@ function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]
         createdAt: now,
       },
       {
-        id: uid(), kind: "restaurant", name: "Kann", location: "Portland, OR",
+        id: uid(), kind: "restaurant", name: "Kann", city: "Portland", state: "OR",
         notes: "Live-fire Haitian. Get a counter seat.",
         tags: ["haitian", "seafood"],
         chaseRating: 3.5, chloeRating: 5,
@@ -168,6 +208,28 @@ function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]
         createdAt: now - 800,
       },
     ],
+    pantryItems: [
+      {
+        id: uid(), kind: "pantry", name: "Onyx Monarch",
+        brand: "Onyx Coffee Lab",
+        stores: ["Whole Foods", "onyx website"],
+        category: "Coffee",
+        notes: "Our go-to espresso bean. Sweet, chocolatey, pulls beautifully at 1:2.",
+        tags: ["espresso", "light roast"],
+        chaseRating: 5, chloeRating: 4.5, wouldBuyAgain: true,
+        createdAt: now,
+      },
+      {
+        id: uid(), kind: "pantry", name: "Calabrian Chili Paste",
+        brand: "Tutto Calabria",
+        stores: ["Eataly", "Amazon"],
+        category: "Sauce",
+        notes: "Goes in everything — pasta, eggs, grilled meats. Fruity heat.",
+        tags: ["spicy", "italian"],
+        chaseRating: 5, chloeRating: 4, wouldBuyAgain: true,
+        createdAt: now - 500,
+      },
+    ],
   };
 }
 
@@ -175,10 +237,11 @@ interface Store {
   recipes: Recipe[];
   drinks: Drink[];
   restaurants: Restaurant[];
+  pantryItems: PantryItem[];
 }
 
 function load(): Store {
-  if (typeof window === "undefined") return { recipes: [], drinks: [], restaurants: [] };
+  if (typeof window === "undefined") return { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) {
@@ -186,9 +249,21 @@ function load(): Store {
       localStorage.setItem(KEY, JSON.stringify(seeded));
       return seeded;
     }
-    return JSON.parse(raw);
+    const p = JSON.parse(raw);
+    return {
+      recipes: p.recipes ?? [],
+      drinks: p.drinks ?? [],
+      restaurants: (p.restaurants ?? []).map((r: any) => {
+        if (!r.city && r.location) {
+          const parts = (r.location as string).split(",").map((s: string) => s.trim());
+          return { ...r, city: parts[0] ?? r.location, state: parts[1] ?? undefined };
+        }
+        return r;
+      }),
+      pantryItems: p.pantryItems ?? [],
+    };
   } catch {
-    return { recipes: [], drinks: [], restaurants: [] };
+    return { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
   }
 }
 
@@ -199,7 +274,7 @@ function snap(): Store {
   if (cache === null) cache = load();
   return cache;
 }
-const emptyServer: Store = { recipes: [], drinks: [], restaurants: [] };
+const emptyServer: Store = { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
 
 function persist() {
   if (cache && typeof window !== "undefined") localStorage.setItem(KEY, JSON.stringify(cache));
@@ -303,11 +378,37 @@ export function deleteRestaurantItem(restaurantId: string, section: "dishes" | "
   updateRestaurant(restaurantId, { [section]: r[section].filter((it) => it.id !== itemId) } as Partial<Restaurant>);
 }
 
+export function addPantryItem(
+  p: Omit<PantryItem, "id" | "kind" | "createdAt" | "tags" | "stores"> & { tags?: string[]; stores?: string[] },
+): PantryItem {
+  const item: PantryItem = {
+    ...p, id: uid(), kind: "pantry", createdAt: Date.now(),
+    tags: p.tags ?? [], stores: p.stores ?? [],
+  };
+  cache = { ...snap(), pantryItems: [item, ...snap().pantryItems] };
+  persist();
+  return item;
+}
+
+export function updatePantryItem(id: string, patch: Partial<PantryItem>) {
+  cache = { ...snap(), pantryItems: snap().pantryItems.map((p) => p.id === id ? { ...p, ...patch } : p) };
+  persist();
+}
+
+export function deletePantryItem(id: string) {
+  cache = { ...snap(), pantryItems: snap().pantryItems.filter((p) => p.id !== id) };
+  persist();
+}
+
 // === Helpers ===
 export function householdRating(r: Ratings): number | undefined {
   const c = r.chaseRating, l = r.chloeRating;
   if (c != null && l != null) return Math.round(((c + l) / 2) * 10) / 10;
   return c ?? l;
+}
+
+export function restaurantLocation(r: Pick<Restaurant, "city" | "state" | "country">): string {
+  return [r.city, r.state, r.country].filter(Boolean).join(", ");
 }
 
 export const DISLIKES: { person: "Chase" | "Chloe"; tag: string }[] = [

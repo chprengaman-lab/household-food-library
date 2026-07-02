@@ -1,16 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Pencil, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { AppShell } from "@/components/AppShell";
 import {
-  EmptyArt, HouseholdReadout, MiniRating, RatingDial, TagChip, WarningNotes,
-  Field, TextArea, TextInput, Pill,
+  EmptyArt, HouseholdReadout, RatingDial, TagChip, WarningNotes,
+  Field, TextArea, TextInput, Pill, ConfirmDelete,
 } from "@/components/bits";
 import {
   addRestaurantItem, deleteRestaurant, deleteRestaurantItem, updateRestaurant, updateRestaurantItem,
-  useStore, householdRating, type RestaurantItem,
+  useStore, householdRating, restaurantLocation, type RestaurantItem,
 } from "@/lib/store";
 
 const search = z.object({ focus: fallback(z.string().optional(), undefined).default(undefined) });
@@ -27,7 +27,6 @@ function RestaurantDetail() {
   const { restaurants } = useStore();
   const r = restaurants.find((x) => x.id === id);
   const [tab, setTab] = useState<"food" | "drinks">("food");
-  // Track the id of a just-added item so its row auto-opens.
   const [newItemId, setNewItemId] = useState<string | null>(null);
 
   if (!r) {
@@ -60,17 +59,15 @@ function RestaurantDetail() {
           >
             <Pencil className="h-3.5 w-3.5" /> Edit
           </Link>
-          <button
-            onClick={() => {
-              if (confirm("Delete this restaurant?")) {
-                deleteRestaurant(r.id);
-                navigate({ to: "/out" });
-              }
-            }}
-            className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <ConfirmDelete
+            name={r.name}
+            onConfirm={() => { deleteRestaurant(r.id); navigate({ to: "/out" }); }}
+            trigger={
+              <button className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            }
+          />
         </div>
       </div>
 
@@ -81,7 +78,14 @@ function RestaurantDetail() {
       )}
 
       <h1 className="font-display text-[34px] leading-tight text-ink">{r.name}</h1>
-      <p className="mt-1 text-sm text-ink/60">{r.location}</p>
+      {(r.city || r.state || r.country) && (
+        <p className="mt-1 text-sm text-ink/60">📍 {restaurantLocation(r)}</p>
+      )}
+      {r.visitDate && (
+        <p className="mt-0.5 text-xs text-bone-dim">
+          Visited {new Date(r.visitDate).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+        </p>
+      )}
 
       <div className="mt-4"><HouseholdReadout r={r} /></div>
 
@@ -113,26 +117,37 @@ function RestaurantDetail() {
         </div>
       )}
 
-      {/* ── Food / Drinks tabs ── */}
+      {/* ── Food / Drinks tab bar ── */}
       <div className="mt-7 flex gap-1 rounded-2xl bg-cream p-1">
-        <button
-          onClick={() => changeTab("food")}
-          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${tab === "food" ? "bg-card text-ink shadow-sm" : "text-ink/55"}`}
-        >
-          Food ({r.dishes.length})
-        </button>
-        <button
-          onClick={() => changeTab("drinks")}
-          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${tab === "drinks" ? "bg-card text-ink shadow-sm" : "text-ink/55"}`}
-        >
-          Drinks ({r.drinks.length})
-        </button>
+        {(["food", "drinks"] as const).map((t) => {
+          const isActive = tab === t;
+          const count = t === "food" ? r.dishes.length : r.drinks.length;
+          return (
+            <button
+              key={t}
+              onClick={() => changeTab(t)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-colors ${
+                isActive ? "bg-card text-saffron shadow-sm" : "text-bone-dim hover:text-bone"
+              }`}
+            >
+              {t === "food" ? "Food" : "Drinks"}
+              <span
+                className={`inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] font-medium ${
+                  isActive ? "bg-saffron/15 text-saffron" : "bg-bone/10 text-bone-dim"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="mt-4 space-y-3">
+      {/* ── Item list ── */}
+      <div className="mt-4 space-y-2">
         {activeItems.length === 0 && (
-          <p className="py-6 text-center text-sm text-ink/40">
-            No {tab === "food" ? "dishes" : "drinks"} added yet.
+          <p className="py-8 text-center text-sm text-bone-dim">
+            No {tab === "food" ? "dishes" : "drinks"} yet — add one below.
           </p>
         )}
 
@@ -157,7 +172,7 @@ function RestaurantDetail() {
   );
 }
 
-// ── Item row (view + inline edit) ──────────────────────────────────────────
+// ── Item row (scan view + inline edit) ────────────────────────────────────────
 
 function ItemRow({
   item,
@@ -174,6 +189,15 @@ function ItemRow({
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   const h = householdRating(item);
+  const hasSubline =
+    !!item.notes || item.chaseRating != null || item.chloeRating != null;
+
+  const perPersonLabel = [
+    item.chaseRating != null ? `C ${item.chaseRating.toFixed(1)}` : null,
+    item.chloeRating != null ? `Ch ${item.chloeRating.toFixed(1)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div
@@ -181,30 +205,63 @@ function ItemRow({
         highlighted ? "border-sienna ring-2 ring-sienna/20" : "border-border"
       }`}
     >
-      {/* Collapsed header — tap to expand / collapse */}
+      {/* Collapsed scan row — tap to expand / collapse */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 p-4 text-left"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left"
       >
+        {/* Name + optional subline */}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-lg text-ink">{item.name}</p>
-          {item.notes && (
-            <p className="mt-0.5 truncate text-xs text-ink/55">{item.notes}</p>
+          <div className="flex items-baseline gap-1.5">
+            <p className="truncate font-display text-base leading-snug text-bone">
+              {item.name}
+            </p>
+            {item.wouldOrderAgain && (
+              <span className="shrink-0 text-[11px] leading-none text-saffron" aria-label="Would order again">
+                ★
+              </span>
+            )}
+          </div>
+
+          {hasSubline && (
+            <div className="mt-0.5 flex min-w-0 items-center gap-2">
+              {item.notes && (
+                <p className="min-w-0 flex-1 truncate text-xs text-bone-dim">
+                  {item.notes}
+                </p>
+              )}
+              {perPersonLabel && (
+                <p className="tnum ml-auto shrink-0 text-xs text-bone-dim">
+                  {perPersonLabel}
+                </p>
+              )}
+            </div>
           )}
         </div>
-        <span className="tnum rounded-full bg-bone px-2 py-0.5 text-xs font-semibold text-noir">
-          {h != null ? h.toFixed(1) : "—"}
-        </span>
+
+        {/* Avg badge + chevron */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="tnum rounded-full bg-bone px-2 py-0.5 text-xs font-semibold text-noir">
+            {h != null ? h.toFixed(1) : "—"}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-bone-dim transition-transform duration-200 ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </div>
       </button>
 
       {/* Expanded edit fields */}
       {open && (
-        <div className="space-y-3 border-t border-border p-4">
+        <div className="space-y-3 border-t border-border px-4 pb-4 pt-3">
           <Field label="Name">
             <TextInput
               defaultValue={item.name}
               onBlur={(e) =>
-                updateRestaurantItem(restaurantId, section, item.id, { name: e.currentTarget.value })
+                updateRestaurantItem(restaurantId, section, item.id, {
+                  name: e.currentTarget.value,
+                })
               }
             />
           </Field>
@@ -213,7 +270,9 @@ function ItemRow({
             <TextArea
               defaultValue={item.notes ?? ""}
               onBlur={(e) =>
-                updateRestaurantItem(restaurantId, section, item.id, { notes: e.currentTarget.value })
+                updateRestaurantItem(restaurantId, section, item.id, {
+                  notes: e.currentTarget.value,
+                })
               }
               placeholder="What stood out…"
             />
@@ -223,12 +282,16 @@ function ItemRow({
             <RatingDial
               label="Chase"
               value={item.chaseRating}
-              onChange={(v) => updateRestaurantItem(restaurantId, section, item.id, { chaseRating: v })}
+              onChange={(v) =>
+                updateRestaurantItem(restaurantId, section, item.id, { chaseRating: v })
+              }
             />
             <RatingDial
               label="Chloe"
               value={item.chloeRating}
-              onChange={(v) => updateRestaurantItem(restaurantId, section, item.id, { chloeRating: v })}
+              onChange={(v) =>
+                updateRestaurantItem(restaurantId, section, item.id, { chloeRating: v })
+              }
             />
           </div>
 
@@ -236,31 +299,26 @@ function ItemRow({
             <Pill
               on={!!item.wouldOrderAgain}
               onClick={() =>
-                updateRestaurantItem(restaurantId, section, item.id, { wouldOrderAgain: !item.wouldOrderAgain })
+                updateRestaurantItem(restaurantId, section, item.id, {
+                  wouldOrderAgain: !item.wouldOrderAgain,
+                })
               }
             >
               {item.wouldOrderAgain ? "★ Would order again" : "Mark would order again"}
             </Pill>
-            <button
-              onClick={() => {
-                if (confirm(`Delete "${item.name}"?`)) {
-                  deleteRestaurantItem(restaurantId, section, item.id);
-                }
-              }}
-              className="text-xs text-destructive hover:opacity-80"
-            >
-              Delete
-            </button>
+            <ConfirmDelete
+              name={item.name}
+              onConfirm={() => deleteRestaurantItem(restaurantId, section, item.id)}
+              trigger={<button type="button" className="text-xs text-destructive hover:opacity-80">Delete</button>}
+            />
           </div>
-
-          <MiniRating r={item} />
         </div>
       )}
     </div>
   );
 }
 
-// ── Add item form (collapsed button → full form) ────────────────────────────
+// ── Add item form (collapsed trigger → full inline form) ──────────────────────
 
 function AddItemForm({
   restaurantId,
@@ -306,7 +364,7 @@ function AddItemForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-bone/20 py-3 text-sm text-bone-dim hover:border-saffron/40 hover:text-saffron transition-colors"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-saffron/20 bg-saffron/10 py-3.5 text-sm font-medium text-saffron transition-colors hover:bg-saffron/15"
       >
         <Plus className="h-4 w-4" />
         {section === "dishes" ? "Add dish" : "Add drink"}
@@ -316,7 +374,7 @@ function AddItemForm({
 
   return (
     <form onSubmit={submit} className="space-y-3 rounded-2xl border border-saffron/30 bg-card p-4">
-      <p className="font-display text-base text-ink">
+      <p className="font-display text-base text-bone">
         {section === "dishes" ? "New dish" : "New drink"}
       </p>
 
@@ -358,7 +416,7 @@ function AddItemForm({
         <button
           type="button"
           onClick={() => { reset(); setOpen(false); }}
-          className="rounded-xl border border-bone/15 px-4 py-2.5 text-sm text-bone-dim hover:text-bone transition-colors"
+          className="rounded-xl border border-bone/15 px-4 py-2.5 text-sm text-bone-dim transition-colors hover:text-bone"
         >
           Cancel
         </button>

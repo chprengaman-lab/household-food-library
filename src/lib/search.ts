@@ -1,10 +1,10 @@
-import { householdRating, type AnyItem, type Drink, type Recipe, type Restaurant } from "./store";
+import { householdRating, type AnyItem, type Drink, type PantryItem, type Recipe, type Restaurant } from "./store";
 
 export type SortKey =
   | "household" | "chase" | "chloe" | "lowest-cal" | "highest-protein"
   | "easiest" | "most-made" | "newest" | "alpha";
 
-export type SectionFilter = "all" | "recipe" | "drink" | "restaurant";
+export type SectionFilter = "all" | "recipe" | "drink" | "restaurant" | "pantry";
 
 export interface Filters {
   query: string;
@@ -26,15 +26,21 @@ function drinkText(d: Drink): string {
     d.espresso?.bean, d.espresso?.milk].filter(Boolean).join(" ").toLowerCase();
 }
 function restaurantText(r: Restaurant): string {
-  return [r.name, r.location, r.notes, r.tags.join(" "),
+  return [r.name, r.city, r.state, r.country, r.notes, r.tags.join(" "),
     ...r.dishes.map((d) => `${d.name} ${d.notes ?? ""}`),
     ...r.drinks.map((d) => `${d.name} ${d.notes ?? ""}`),
   ].filter(Boolean).join(" ").toLowerCase();
 }
 
+function pantryText(p: PantryItem): string {
+  return [p.name, p.brand, p.category, p.notes, p.tags.join(" "), p.stores.join(" ")]
+    .filter(Boolean).join(" ").toLowerCase();
+}
+
 export function itemText(it: AnyItem): string {
   if (it.kind === "recipe") return recipeText(it);
   if (it.kind === "drink") return drinkText(it);
+  if (it.kind === "pantry") return pantryText(it);
   return restaurantText(it);
 }
 

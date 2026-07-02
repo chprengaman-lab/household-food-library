@@ -1,5 +1,7 @@
 import { Minus, Plus, AlertCircle, Sparkles, Star } from "lucide-react";
+import { useState } from "react";
 import type { ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { householdRating, warningsFor, type Ratings } from "@/lib/store";
 
 export function Label({ children }: { children: ReactNode }) {
@@ -188,7 +190,7 @@ export function EmptyArt({
   className = "",
   variant = "cream",
 }: {
-  kind: "recipe" | "drink" | "restaurant" | "espresso";
+  kind: "recipe" | "drink" | "restaurant" | "espresso" | "pantry";
   className?: string;
   variant?: "cream" | "forest" | "journal";
 }) {
@@ -196,6 +198,15 @@ export function EmptyArt({
   const base = "relative overflow-hidden bg-slate text-brass";
 
   const art: Record<string, ReactNode> = {
+    pantry: (
+      <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12">
+        <path d="M24 32h32l-3 24H27L24 32z" />
+        <path d="M29 32V24a11 11 0 0 1 22 0v8" />
+        <circle cx="32" cy="32" r="1.5" fill="currentColor" />
+        <circle cx="48" cy="32" r="1.5" fill="currentColor" />
+        <path d="M34 44h12M34 50h8" />
+      </svg>
+    ),
     recipe: (
       <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12">
         <path d="M14 32h52" />
@@ -283,40 +294,145 @@ export function SectionTitle({
 }
 
 /* ===== AI auto-fill ===== */
-export function AutofillBox({ onFill }: { onFill: (notes: string) => void }) {
+export function AutofillBox({ onFill }: { onFill: (notes: string) => Promise<void> }) {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [drafted, setDrafted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const notes = text.trim();
+    if (!notes || loading) return;
+    setLoading(true);
+    setDrafted(false);
+    setError(null);
+    try {
+      await onFill(notes);
+      setDrafted(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Generation failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="rounded-md border border-dashed border-saffron/40 bg-saffron/[0.05] p-4">
-      <div className="mb-2 flex items-center gap-2 text-saffron">
+      <div className="mb-3 flex items-center gap-2 text-saffron">
         <Sparkles className="h-4 w-4" />
         <span className="folio">Auto-fill from notes</span>
       </div>
-      <p className="mb-3 text-xs text-bone-dim">
-        Paste messy notes. We'll fill blank fields only — your edits stay yours. Review before saving.
-      </p>
-      <NotesPaste onFill={onFill} />
+      <form onSubmit={handleSubmit} className="space-y-2.5">
+        <TextArea
+          value={text}
+          onChange={(e) => { setText(e.target.value); setDrafted(false); setError(null); }}
+          rows={4}
+          placeholder="Paste a recipe, messy notes, restaurant review, or drink recipe..."
+        />
+        <button
+          type="submit"
+          disabled={loading || !text.trim()}
+          className="inline-flex h-10 items-center gap-2 rounded-md bg-saffron px-4 text-sm font-semibold text-noir transition-opacity hover:opacity-90 disabled:opacity-40"
+        >
+          {loading ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-noir/30 border-t-noir" />
+              Generating…
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4" />
+              Generate Draft
+            </>
+          )}
+        </button>
+        {drafted && (
+          <p className="text-xs font-medium text-saffron">
+            ✓ Draft applied — review all generated information before saving.
+          </p>
+        )}
+        {error && (
+          <p className="text-xs text-red-400">
+            ⚠ {error}
+          </p>
+        )}
+      </form>
     </div>
   );
 }
 
-function NotesPaste({ onFill }: { onFill: (n: string) => void }) {
+/* ===== AI-generated badge ===== */
+export function AiBadge() {
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const data = new FormData(e.currentTarget);
-        const notes = String(data.get("notes") ?? "");
-        if (notes.trim()) onFill(notes);
-      }}
-      className="space-y-2"
+    <span
+      className="inline-flex items-center gap-0.5 rounded-sm bg-saffron/15 px-1 py-0.5 text-[10px] font-medium text-saffron"
+      title="AI-generated"
     >
-      <TextArea name="notes" placeholder="e.g. Ingredients: 1 lb chicken, 2 tbsp soy sauce&#10;Steps: Sear chicken, simmer 20 min. About 420 cal, 35g protein. Easy weeknight." />
-      <button
-        type="submit"
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-saffron px-4 text-sm font-semibold text-noir hover:opacity-90"
-      >
-        <Sparkles className="h-4 w-4" /> Generate Draft
-      </button>
-    </form>
+      <Sparkles className="h-2.5 w-2.5" /> AI
+    </span>
+  );
+}
+
+/* ===== Favourite rating badges ===== */
+export function FavoriteBadges({ r }: { r: Ratings }) {
+  const h = householdRating(r);
+  const items: Array<{ emoji: string; label: string }> = [];
+  if ((r.chaseRating ?? 0) >= 4.5) items.push({ emoji: "❤️", label: "Chase Favorite" });
+  if ((r.chloeRating ?? 0) >= 4.5) items.push({ emoji: "💜", label: "Chloe Favorite" });
+  if (h != null && h >= 4.7) items.push({ emoji: "🏆", label: "Household Favorite" });
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map(({ emoji, label }) => (
+        <span key={label} className="inline-flex items-center gap-1.5 rounded-full bg-saffron/10 px-2.5 py-1 text-xs font-medium text-bone">
+          {emoji} {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ===== Confirm-before-delete dialog ===== */
+export function ConfirmDelete({
+  name,
+  onConfirm,
+  trigger,
+}: {
+  name: string;
+  onConfirm: () => void;
+  trigger: ReactNode;
+}) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-noir/60 backdrop-blur-sm" />
+        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,400px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card p-6 shadow-2xl">
+          <AlertDialog.Title className="font-display text-lg text-bone">
+            Delete "{name}"?
+          </AlertDialog.Title>
+          <AlertDialog.Description className="mt-2 text-sm text-bone-dim">
+            This cannot be undone.
+          </AlertDialog.Description>
+          <div className="mt-5 flex justify-end gap-3">
+            <AlertDialog.Cancel className="rounded-xl border border-bone/15 px-4 py-2.5 text-sm text-bone-dim transition-colors hover:text-bone">
+              Cancel
+            </AlertDialog.Cancel>
+            <AlertDialog.Action
+              onClick={onConfirm}
+              className="rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Delete
+            </AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }
 
@@ -349,7 +465,7 @@ export function PhotoField({
 }: {
   value?: string;
   onChange: (next: string | undefined) => void;
-  kind: "recipe" | "drink" | "restaurant" | "espresso";
+  kind: "recipe" | "drink" | "restaurant" | "espresso" | "pantry";
 }) {
   return (
     <div>

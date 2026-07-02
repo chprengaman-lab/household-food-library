@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, Plus, Sparkles, ArrowUpRight, BookOpen, Coffee, Store, X } from "lucide-react";
+import { Search, Plus, Sparkles, ArrowUpRight, BookOpen, Coffee, Store, ShoppingBag, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MiniRating, EmptyArt, SectionTitle, ReviewBadge } from "@/components/bits";
 import {
@@ -10,6 +10,7 @@ import {
   type Recipe,
   type Drink,
   type Restaurant,
+  type PantryItem,
 } from "@/lib/store";
 import { matches, sortItems, type Filters } from "@/lib/search";
 import { relTime } from "./cookbook";
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Library() {
-  const { recipes, drinks, restaurants } = useStore();
+  const { recipes, drinks, restaurants, pantryItems } = useStore();
   const [query, setQuery] = useState("");
 
   if (query.trim()) return <SearchResults query={query} setQuery={setQuery} />;
@@ -55,6 +56,10 @@ function Library() {
 
   const latestDrinks = [...drinks].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
   const latestRest = [...restaurants].sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
+  const latestPantry = [...pantryItems]
+    .filter((p) => p.wouldBuyAgain || (householdRating(p) ?? 0) >= 4)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 4);
 
   const needsReview = [
     ...recipes.filter((r) => r.needsReview),
@@ -213,6 +218,19 @@ function Library() {
         </section>
       )}
 
+      {/* === Pantry === */}
+      {latestPantry.length > 0 && (
+        <section className="mb-14">
+          <SectionTitle kicker="Products we keep buying"
+            action={<TinyLink to="/pantry">All</TinyLink>}>
+            Pantry staples
+          </SectionTitle>
+          <div className="space-y-2">
+            {latestPantry.map((p) => <PantryCard key={p.id} p={p} />)}
+          </div>
+        </section>
+      )}
+
       {/* === Needs Review === */}
       {needsReview.length > 0 && (
         <section className="mb-14">
@@ -237,18 +255,22 @@ function Library() {
       )}
 
       {/* Add menu */}
-      <AddMenu restaurants={restaurants} />
+      <AddMenu />
     </AppShell>
   );
 }
 
 /* ===== Helpers ===== */
-function hrefFor(it: Recipe | Drink | Restaurant) {
-  return it.kind === "recipe" ? "/cookbook/$id" : it.kind === "drink" ? "/drinks/$id" : "/out/$id";
+function hrefFor(it: Recipe | Drink | Restaurant | PantryItem) {
+  if (it.kind === "recipe") return "/cookbook/$id";
+  if (it.kind === "drink") return "/drinks/$id";
+  if (it.kind === "pantry") return "/pantry/$id";
+  return "/out/$id";
 }
-function artKind(it: Recipe | Drink | Restaurant): "recipe" | "drink" | "espresso" | "restaurant" {
+function artKind(it: Recipe | Drink | Restaurant | PantryItem): "recipe" | "drink" | "espresso" | "restaurant" | "pantry" {
   if (it.kind === "recipe") return "recipe";
   if (it.kind === "drink") return it.drinkKind === "espresso" ? "espresso" : "drink";
+  if (it.kind === "pantry") return "pantry";
   return "restaurant";
 }
 
@@ -273,7 +295,7 @@ function HorizontalScroll({ children }: { children: React.ReactNode }) {
 
 /* === Search === */
 function SearchResults({ query, setQuery }: { query: string; setQuery: (v: string) => void }) {
-  const { recipes, drinks, restaurants } = useStore();
+  const { recipes, drinks, restaurants, pantryItems } = useStore();
   const filters: Filters = { query, section: "all", tags: [], minRating: 0, sort: "newest" };
   const q = query.trim().toLowerCase();
 
@@ -288,8 +310,9 @@ function SearchResults({ query, setQuery }: { query: string; setQuery: (v: strin
     );
     return [...base, ...extra];
   }, [restaurants, query]);
+  const rPantry = useMemo(() => sortItems(pantryItems.filter((p) => matches(p, filters)), "household"), [pantryItems, query]);
 
-  const total = rRecipes.length + rDrinks.length + rRest.length;
+  const total = rRecipes.length + rDrinks.length + rRest.length + rPantry.length;
 
   return (
     <AppShell folio="00">
@@ -326,6 +349,12 @@ function SearchResults({ query, setQuery }: { query: string; setQuery: (v: strin
         <section className="mb-10">
           <SectionTitle kicker="Places">Out & about</SectionTitle>
           <div className="space-y-4">{rRest.map((r) => <RestaurantEditorial key={r.id} r={r} highlight={q} />)}</div>
+        </section>
+      )}
+      {rPantry.length > 0 && (
+        <section className="mb-10">
+          <SectionTitle kicker="Pantry">Household staples</SectionTitle>
+          <div className="space-y-2">{rPantry.map((p) => <PantryCard key={p.id} p={p} />)}</div>
         </section>
       )}
       {total === 0 && (
@@ -437,8 +466,33 @@ function RestaurantEditorial({ r, highlight }: { r: Restaurant; highlight?: stri
   );
 }
 
+/* ===== Pantry card (used on home + search) ===== */
+function PantryCard({ p }: { p: PantryItem }) {
+  return (
+    <Link
+      to="/pantry/$id"
+      params={{ id: p.id }}
+      className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-saffron/30"
+    >
+      {p.photo ? (
+        <img src={p.photo} alt={p.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <EmptyArt kind="pantry" className="h-12 w-12 shrink-0 rounded-lg" />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-1.5">
+          <p className="truncate font-display text-base text-bone">{p.name}</p>
+          {p.wouldBuyAgain && <span className="shrink-0 text-[11px] text-saffron">★</span>}
+        </div>
+        <p className="folio">{p.brand ? `${p.brand} · ` : ""}{p.category}</p>
+      </div>
+      <MiniRating r={p} />
+    </Link>
+  );
+}
+
 /* ===== Add menu (FAB + sheet) ===== */
-function AddMenu({ restaurants: _restaurants }: { restaurants: Restaurant[] }) {
+function AddMenu() {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -468,6 +522,7 @@ function AddMenu({ restaurants: _restaurants }: { restaurants: Restaurant[] }) {
               <AddOption to="/new" search={{ type: "recipe" }} icon={<BookOpen className="h-4 w-4" />} label="Add Recipe" desc="Home cooking" onClick={() => setOpen(false)} />
               <AddOption to="/new" search={{ type: "drink" }} icon={<Coffee className="h-4 w-4" />} label="Add Drink" desc="Espresso, cocktails, wine…" onClick={() => setOpen(false)} />
               <AddOption to="/new" search={{ type: "restaurant" }} icon={<Store className="h-4 w-4" />} label="Add Restaurant Visit" desc="With dishes & drinks ordered" onClick={() => setOpen(false)} />
+              <AddOption to="/new" search={{ type: "pantry" }} icon={<ShoppingBag className="h-4 w-4" />} label="Add Pantry Item" desc="Products we'd buy again" onClick={() => setOpen(false)} />
             </div>
           </div>
         </div>

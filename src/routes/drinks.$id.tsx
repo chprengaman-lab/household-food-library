@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { EmptyArt, HouseholdReadout, RatingDial, ReviewBadge, TagChip, WarningNotes, Field, TextArea } from "@/components/bits";
+import { EmptyArt, HouseholdReadout, RatingDial, ReviewBadge, TagChip, WarningNotes, Field, TextArea, FavoriteBadges, ConfirmDelete } from "@/components/bits";
 import { deleteDrink, drinkKindLabel, updateDrink, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/drinks/$id")({
@@ -30,8 +30,11 @@ function DrinkDetail() {
         <Link to="/drinks" className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"><ArrowLeft className="h-4 w-4" /> Drink Lab</Link>
         <div className="flex items-center gap-2">
           <Link to="/new" search={{ type: "drink", edit: d.id }} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-cream px-3 text-xs font-semibold text-ink"><Pencil className="h-3.5 w-3.5" /> Edit</Link>
-          <button onClick={() => { if (confirm("Delete this drink?")) { deleteDrink(d.id); navigate({ to: "/drinks" }); } }}
-            className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+          <ConfirmDelete
+            name={d.name}
+            onConfirm={() => { deleteDrink(d.id); navigate({ to: "/drinks" }); }}
+            trigger={<button className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+          />
         </div>
       </div>
 
@@ -44,6 +47,7 @@ function DrinkDetail() {
       {d.needsReview && <ReviewBadge />}
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sienna">{drinkKindLabel[d.drinkKind]}</p>
       <h1 className="font-display text-[34px] leading-tight text-ink">{d.name}</h1>
+      <div className="mt-3"><FavoriteBadges r={d} /></div>
 
       {isEsp && d.espresso && (
         <section className="mt-5">
