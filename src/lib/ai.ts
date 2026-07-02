@@ -144,9 +144,8 @@ const callAI = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      throw new Error(
-        "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the dev server.",
-      );
+      // Throw a user-facing message — the raw env-var name must not reach the client.
+      throw new Error("AI generation is not available right now. Please try again later.");
     }
 
     // Dynamic import keeps the SDK out of the client bundle.

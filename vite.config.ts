@@ -7,6 +7,10 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  // Hard-pin the Vercel serverless output format when building outside Lovable
+  // (e.g. CI from GitHub → Vercel). Inside a Lovable build this is ignored and
+  // Cloudflare is forced automatically by the config package.
+  nitro: { preset: "vercel" },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
