@@ -400,6 +400,16 @@ export function deletePantryItem(id: string) {
   persist();
 }
 
+export function clearAll() {
+  cache = { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
+  persist();
+}
+
+export function restoreSeed() {
+  cache = seed();
+  persist();
+}
+
 // === Helpers ===
 export function householdRating(r: Ratings): number | undefined {
   const c = r.chaseRating, l = r.chloeRating;

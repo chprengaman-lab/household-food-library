@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PantryRouteImport } from './routes/pantry'
 import { Route as OutRouteImport } from './routes/out'
 import { Route as NewRouteImport } from './routes/new'
@@ -25,6 +26,11 @@ import { Route as OutIdRouteImport } from './routes/out.$id'
 import { Route as DrinksIdRouteImport } from './routes/drinks.$id'
 import { Route as CookbookIdRouteImport } from './routes/cookbook.$id'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PantryRoute = PantryRouteImport.update({
   id: '/pantry',
   path: '/pantry',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/new': typeof NewRoute
   '/out': typeof OutRouteWithChildren
   '/pantry': typeof PantryRouteWithChildren
+  '/settings': typeof SettingsRoute
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/favorites': typeof FavoritesRoute
   '/new': typeof NewRoute
+  '/settings': typeof SettingsRoute
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/new': typeof NewRoute
   '/out': typeof OutRouteWithChildren
   '/pantry': typeof PantryRouteWithChildren
+  '/settings': typeof SettingsRoute
   '/cookbook/$id': typeof CookbookIdRoute
   '/drinks/$id': typeof DrinksIdRoute
   '/out/$id': typeof OutIdRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/out'
     | '/pantry'
+    | '/settings'
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/'
     | '/favorites'
     | '/new'
+    | '/settings'
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/out'
     | '/pantry'
+    | '/settings'
     | '/cookbook/$id'
     | '/drinks/$id'
     | '/out/$id'
@@ -207,10 +219,18 @@ export interface RootRouteChildren {
   NewRoute: typeof NewRoute
   OutRoute: typeof OutRouteWithChildren
   PantryRoute: typeof PantryRouteWithChildren
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pantry': {
       id: '/pantry'
       path: '/pantry'
@@ -379,6 +399,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewRoute: NewRoute,
   OutRoute: OutRouteWithChildren,
   PantryRoute: PantryRouteWithChildren,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

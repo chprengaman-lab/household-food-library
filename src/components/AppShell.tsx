@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Coffee, Utensils, Heart, Library as LibIcon, ShoppingBag } from "lucide-react";
+import { BookOpen, Coffee, Utensils, Heart, Library as LibIcon, Settings, ShoppingBag } from "lucide-react";
 import type { ReactNode } from "react";
 
 const tabs = [
@@ -9,6 +9,7 @@ const tabs = [
   { to: "/out", label: "Going Out", icon: Utensils },
   { to: "/pantry", label: "Pantry", icon: ShoppingBag },
   { to: "/favorites", label: "Favorites", icon: Heart },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function AppShell({

@@ -1,0 +1,1 @@
+import{c as e}from"./useStore-r0Kk5vzo.js";import{c as t}from"./index-BCoi3YRd.js";var n=e();function r(e){let t=Math.floor((Date.now()-e)/864e5);return t<=0?`today`:t===1?`yesterday`:t<14?`${t}d ago`:t<60?`${Math.floor(t/7)}w ago`:`${Math.floor(t/30)}mo ago`}var i=()=>(0,n.jsx)(t,{});export{i as component,r as relTime};
