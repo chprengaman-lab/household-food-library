@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase, supabaseConfigError } from "@/lib/supabase";
+import { setCurrentUser, loadFromCloud } from "@/lib/store";
 
 const ALLOWLIST = ["chprengaman@gmail.com", "chloeprengaman@gmail.com"];
 
@@ -42,6 +43,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       const email = u?.email ?? null;
       const allowed = email ? ALLOWLIST.includes(email) : false;
       console.log("[auth] resolve — email:", email, "in allowlist:", allowed);
+      if (u && allowed) {
+        setCurrentUser(u.email!);
+        void loadFromCloud();
+      }
       setUser(u);
       setStatus(!u ? "unauthed" : allowed ? "authed" : "denied");
     }

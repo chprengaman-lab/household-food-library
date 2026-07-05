@@ -60,7 +60,7 @@ function SettingsPage() {
         <div className="mb-5">
           <h2 className="font-display text-2xl text-bone">Demo Data</h2>
           <p className="folio mt-1 text-bone-dim">
-            The app ships with sample content for browsing. Clear it when you're ready to start your own library, or restore it for portfolio demos.
+            The app ships with sample content for browsing. Clear it when you're ready to start your own library, or restore it anytime. These actions update the shared household database — changes will appear on all devices.
           </p>
         </div>
 
@@ -79,7 +79,7 @@ function SettingsPage() {
             confirmLabel: "Reset",
             confirmClass: "bg-destructive text-white hover:opacity-90",
             onConfirm: () => {
-              clearAll();
+              void clearAll().catch((err) => console.error("[settings] clearAll failed:", err));
               toast.success("Done — you're starting fresh.");
             },
           }}
@@ -95,7 +95,7 @@ function SettingsPage() {
             confirmLabel: "Restore",
             confirmClass: "bg-saffron text-noir hover:opacity-90",
             onConfirm: () => {
-              restoreSeed();
+              void restoreSeed().catch((err) => console.error("[settings] restoreSeed failed:", err));
               toast.success("Demo data restored.");
             },
           }}
@@ -105,7 +105,7 @@ function SettingsPage() {
       {/* Storage note */}
       <div className="mt-8 rounded-2xl border border-bone/8 bg-graphite/50 px-5 py-4">
         <p className="text-xs leading-relaxed text-bone-dim">
-          <span className="font-semibold text-bone">Data is stored locally on this device</span> until cloud sync is added. Clearing browser data or switching devices will not carry your library over.
+          Your library is synced to the cloud. Data added on one device appears on all others after a refresh.
         </p>
       </div>
 

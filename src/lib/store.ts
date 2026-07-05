@@ -1,4 +1,11 @@
 import { useSyncExternalStore } from "react";
+import { supabase } from "./supabase";
+import {
+  fetchAllData, dbUpsertRecipe, dbDeleteRecipe,
+  dbUpsertDrink, dbDeleteDrink, dbUpsertRestaurant,
+  dbDeleteRestaurant, dbUpsertPantry, dbDeletePantry,
+  dbClearAll, dbSeedAll,
+} from "./db";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type Portion = "light" | "normal" | "filling";
@@ -124,6 +131,39 @@ function uid() {
   return (typeof crypto !== "undefined" && crypto.randomUUID)
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
+}
+
+let _currentEmail = "";
+
+export function setCurrentUser(email: string) {
+  _currentEmail = email;
+}
+
+export async function loadFromCloud(): Promise<void> {
+  if (!supabase) return;
+  try {
+    const data = await fetchAllData();
+    cache = data;
+    persist();
+    console.log("[store] loaded from cloud — recipes:", data.recipes.length,
+      "drinks:", data.drinks.length, "restaurants:", data.restaurants.length,
+      "pantry:", data.pantryItems.length);
+  } catch (e) {
+    console.error("[store] loadFromCloud failed — keeping local data:", e);
+  }
+}
+
+const _restaurantSyncTimer = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleSyncRestaurant(id: string) {
+  const prev = _restaurantSyncTimer.get(id);
+  if (prev) clearTimeout(prev);
+  const t = setTimeout(() => {
+    _restaurantSyncTimer.delete(id);
+    const r = cache?.restaurants.find((x) => x.id === id);
+    if (r && _currentEmail) void dbUpsertRestaurant(r, _currentEmail);
+  }, 300);
+  _restaurantSyncTimer.set(id, t);
 }
 
 function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]; pantryItems: PantryItem[] } {
@@ -301,17 +341,21 @@ export function addRecipe(r: Omit<Recipe, "id" | "kind" | "createdAt" | "timesMa
   };
   cache = { ...snap(), recipes: [item, ...snap().recipes] };
   persist();
+  if (_currentEmail) void dbUpsertRecipe(item, _currentEmail);
   return item;
 }
 
 export function updateRecipe(id: string, patch: Partial<Recipe>) {
   cache = { ...snap(), recipes: snap().recipes.map((r) => r.id === id ? { ...r, ...patch } : r) };
   persist();
+  const updated = cache!.recipes.find((r) => r.id === id);
+  if (updated && _currentEmail) void dbUpsertRecipe(updated, _currentEmail);
 }
 
 export function deleteRecipe(id: string) {
   cache = { ...snap(), recipes: snap().recipes.filter((r) => r.id !== id) };
   persist();
+  void dbDeleteRecipe(id);
 }
 
 export function bumpTimesMade(id: string, delta: number) {
@@ -325,17 +369,21 @@ export function addDrink(d: Omit<Drink, "id" | "kind" | "createdAt" | "tags"> & 
   const item: Drink = { ...d, id: uid(), kind: "drink", createdAt: Date.now(), tags: d.tags ?? [] };
   cache = { ...snap(), drinks: [item, ...snap().drinks] };
   persist();
+  if (_currentEmail) void dbUpsertDrink(item, _currentEmail);
   return item;
 }
 
 export function updateDrink(id: string, patch: Partial<Drink>) {
   cache = { ...snap(), drinks: snap().drinks.map((d) => d.id === id ? { ...d, ...patch } : d) };
   persist();
+  const updated = cache!.drinks.find((d) => d.id === id);
+  if (updated && _currentEmail) void dbUpsertDrink(updated, _currentEmail);
 }
 
 export function deleteDrink(id: string) {
   cache = { ...snap(), drinks: snap().drinks.filter((d) => d.id !== id) };
   persist();
+  void dbDeleteDrink(id);
 }
 
 export function addRestaurant(r: Omit<Restaurant, "id" | "kind" | "createdAt" | "tags" | "dishes" | "drinks"> & { tags?: string[] }): Restaurant {
@@ -345,17 +393,20 @@ export function addRestaurant(r: Omit<Restaurant, "id" | "kind" | "createdAt" | 
   };
   cache = { ...snap(), restaurants: [item, ...snap().restaurants] };
   persist();
+  if (_currentEmail) scheduleSyncRestaurant(item.id);
   return item;
 }
 
 export function updateRestaurant(id: string, patch: Partial<Restaurant>) {
   cache = { ...snap(), restaurants: snap().restaurants.map((r) => r.id === id ? { ...r, ...patch } : r) };
   persist();
+  if (_currentEmail) scheduleSyncRestaurant(id);
 }
 
 export function deleteRestaurant(id: string) {
   cache = { ...snap(), restaurants: snap().restaurants.filter((r) => r.id !== id) };
   persist();
+  void dbDeleteRestaurant(id);
 }
 
 export function addRestaurantItem(restaurantId: string, section: "dishes" | "drinks", item: Omit<RestaurantItem, "id">) {
@@ -387,27 +438,35 @@ export function addPantryItem(
   };
   cache = { ...snap(), pantryItems: [item, ...snap().pantryItems] };
   persist();
+  if (_currentEmail) void dbUpsertPantry(item, _currentEmail);
   return item;
 }
 
 export function updatePantryItem(id: string, patch: Partial<PantryItem>) {
   cache = { ...snap(), pantryItems: snap().pantryItems.map((p) => p.id === id ? { ...p, ...patch } : p) };
   persist();
+  const updated = cache!.pantryItems.find((p) => p.id === id);
+  if (updated && _currentEmail) void dbUpsertPantry(updated, _currentEmail);
 }
 
 export function deletePantryItem(id: string) {
   cache = { ...snap(), pantryItems: snap().pantryItems.filter((p) => p.id !== id) };
   persist();
+  void dbDeletePantry(id);
 }
 
-export function clearAll() {
+export async function clearAll(): Promise<void> {
   cache = { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
   persist();
+  await dbClearAll();
 }
 
-export function restoreSeed() {
-  cache = seed();
+export async function restoreSeed(): Promise<void> {
+  const seedData = seed();
+  cache = seedData;
   persist();
+  await dbClearAll();
+  if (_currentEmail) await dbSeedAll(seedData, _currentEmail);
 }
 
 // === Helpers ===
