@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { householdRating, warningsFor, type Ratings } from "@/lib/store";
+import { uploadPhoto, deletePhoto, type PhotoEntityType } from "@/lib/storage";
 
 export function Label({ children }: { children: ReactNode }) {
   return <span className="folio mb-1.5 block">{children}</span>;
@@ -443,7 +444,7 @@ export function ConfirmDelete({
 
 /* ===== Photo upload field ===== */
 
-function compressImage(file: File, maxPx: number, quality: number): Promise<string> {
+function compressToBlob(file: File, maxPx: number, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -456,9 +457,16 @@ function compressImage(file: File, maxPx: number, quality: number): Promise<stri
       canvas.width = w;
       canvas.height = h;
       canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", quality));
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to compress image"));
+        },
+        "image/jpeg",
+        quality,
+      );
     };
-    img.onerror = reject;
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
     img.src = url;
   });
 }
@@ -467,15 +475,51 @@ export function PhotoField({
   value,
   onChange,
   kind,
+  entityType,
+  entityId,
 }: {
   value?: string;
   onChange: (next: string | undefined) => void;
   kind: "recipe" | "drink" | "restaurant" | "espresso" | "pantry";
+  entityType: PhotoEntityType;
+  entityId: string;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Only image files are supported.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("Image is too large (max 10 MB).");
+      return;
+    }
+    setUploadError(null);
+    setUploading(true);
+    const oldUrl = value;
+    try {
+      const blob = await compressToBlob(file, 1200, 0.80);
+      const url = await uploadPhoto(blob, entityType, entityId);
+      if (oldUrl) void deletePhoto(oldUrl);
+      onChange(url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleRemove() {
+    if (value) void deletePhoto(value);
+    onChange(undefined);
+  }
+
   return (
     <div>
       <Label>Photo</Label>
-      <label className="group block cursor-pointer">
+      <label className={`group block ${uploading ? "pointer-events-none cursor-wait" : "cursor-pointer"}`}>
         <div className="relative h-44 w-full overflow-hidden rounded-md border border-dashed border-bone/20 bg-graphite">
           {value ? (
             <>
@@ -492,30 +536,36 @@ export function PhotoField({
               </div>
             </div>
           )}
+          {uploading && (
+            <div className="absolute inset-0 grid place-items-center bg-noir/70">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-saffron/30 border-t-saffron" />
+            </div>
+          )}
         </div>
         <input
           type="file"
           accept="image/*"
           className="hidden"
+          disabled={uploading}
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (!f) return;
-            compressImage(f, 1200, 0.75).then(onChange).catch(() => {
-              const reader = new FileReader();
-              reader.onload = () => onChange(typeof reader.result === "string" ? reader.result : undefined);
-              reader.readAsDataURL(f);
-            });
+            if (f) void handleFile(f);
+            // Reset so the same file can be re-selected after an error.
+            e.target.value = "";
           }}
         />
       </label>
-      {value && (
+      {value && !uploading && (
         <button
           type="button"
-          onClick={() => onChange(undefined)}
+          onClick={handleRemove}
           className="folio mt-2 text-bone-dim hover:text-saffron"
         >
           Remove photo
         </button>
+      )}
+      {uploadError && (
+        <p className="mt-1 text-xs text-red-400">⚠ {uploadError}</p>
       )}
     </div>
   );

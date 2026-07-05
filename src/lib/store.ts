@@ -6,6 +6,7 @@ import {
   dbDeleteRestaurant, dbUpsertPantry, dbDeletePantry,
   dbClearAll, dbSeedAll,
 } from "./db";
+import { deletePhoto } from "./storage";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type Portion = "light" | "normal" | "filling";
@@ -333,10 +334,10 @@ export function useStore() {
 }
 
 // === Mutations ===
-export function addRecipe(r: Omit<Recipe, "id" | "kind" | "createdAt" | "timesMade" | "tags"> & { tags?: string[]; timesMade?: number }): Recipe {
+export function addRecipe(r: Omit<Recipe, "kind" | "createdAt" | "timesMade" | "tags"> & { id?: string; tags?: string[]; timesMade?: number }): Recipe {
   const item: Recipe = {
     ...r,
-    id: uid(), kind: "recipe", createdAt: Date.now(),
+    id: r.id ?? uid(), kind: "recipe", createdAt: Date.now(),
     timesMade: r.timesMade ?? 0,
     tags: r.tags ?? [],
     ingredients: r.ingredients ?? [],
@@ -356,6 +357,8 @@ export function updateRecipe(id: string, patch: Partial<Recipe>) {
 }
 
 export function deleteRecipe(id: string) {
+  const photo = snap().recipes.find((r) => r.id === id)?.photo;
+  if (photo) void deletePhoto(photo);
   cache = { ...snap(), recipes: snap().recipes.filter((r) => r.id !== id) };
   persist();
   void dbDeleteRecipe(id);
@@ -368,8 +371,8 @@ export function bumpTimesMade(id: string, delta: number) {
   updateRecipe(id, { timesMade: next, lastMade: delta > 0 ? Date.now() : r.lastMade });
 }
 
-export function addDrink(d: Omit<Drink, "id" | "kind" | "createdAt" | "tags"> & { tags?: string[] }): Drink {
-  const item: Drink = { ...d, id: uid(), kind: "drink", createdAt: Date.now(), tags: d.tags ?? [] };
+export function addDrink(d: Omit<Drink, "kind" | "createdAt" | "tags"> & { id?: string; tags?: string[] }): Drink {
+  const item: Drink = { ...d, id: d.id ?? uid(), kind: "drink", createdAt: Date.now(), tags: d.tags ?? [] };
   cache = { ...snap(), drinks: [item, ...snap().drinks] };
   persist();
   if (_currentEmail) void dbUpsertDrink(item, _currentEmail);
@@ -384,14 +387,16 @@ export function updateDrink(id: string, patch: Partial<Drink>) {
 }
 
 export function deleteDrink(id: string) {
+  const photo = snap().drinks.find((d) => d.id === id)?.photo;
+  if (photo) void deletePhoto(photo);
   cache = { ...snap(), drinks: snap().drinks.filter((d) => d.id !== id) };
   persist();
   void dbDeleteDrink(id);
 }
 
-export function addRestaurant(r: Omit<Restaurant, "id" | "kind" | "createdAt" | "tags" | "dishes" | "drinks"> & { tags?: string[] }): Restaurant {
+export function addRestaurant(r: Omit<Restaurant, "kind" | "createdAt" | "tags" | "dishes" | "drinks"> & { id?: string; tags?: string[] }): Restaurant {
   const item: Restaurant = {
-    ...r, id: uid(), kind: "restaurant", createdAt: Date.now(),
+    ...r, id: r.id ?? uid(), kind: "restaurant", createdAt: Date.now(),
     tags: r.tags ?? [], dishes: [], drinks: [],
   };
   cache = { ...snap(), restaurants: [item, ...snap().restaurants] };
@@ -407,6 +412,8 @@ export function updateRestaurant(id: string, patch: Partial<Restaurant>) {
 }
 
 export function deleteRestaurant(id: string) {
+  const photo = snap().restaurants.find((r) => r.id === id)?.photo;
+  if (photo) void deletePhoto(photo);
   cache = { ...snap(), restaurants: snap().restaurants.filter((r) => r.id !== id) };
   persist();
   void dbDeleteRestaurant(id);
@@ -433,10 +440,10 @@ export function deleteRestaurantItem(restaurantId: string, section: "dishes" | "
 }
 
 export function addPantryItem(
-  p: Omit<PantryItem, "id" | "kind" | "createdAt" | "tags" | "stores"> & { tags?: string[]; stores?: string[] },
+  p: Omit<PantryItem, "kind" | "createdAt" | "tags" | "stores"> & { id?: string; tags?: string[]; stores?: string[] },
 ): PantryItem {
   const item: PantryItem = {
-    ...p, id: uid(), kind: "pantry", createdAt: Date.now(),
+    ...p, id: p.id ?? uid(), kind: "pantry", createdAt: Date.now(),
     tags: p.tags ?? [], stores: p.stores ?? [],
   };
   cache = { ...snap(), pantryItems: [item, ...snap().pantryItems] };
@@ -453,6 +460,8 @@ export function updatePantryItem(id: string, patch: Partial<PantryItem>) {
 }
 
 export function deletePantryItem(id: string) {
+  const photo = snap().pantryItems.find((p) => p.id === id)?.photo;
+  if (photo) void deletePhoto(photo);
   cache = { ...snap(), pantryItems: snap().pantryItems.filter((p) => p.id !== id) };
   persist();
   void dbDeletePantry(id);

@@ -74,6 +74,7 @@ function NewItem() {
 
 // ---------- Recipe ----------
 function RecipeForm({ existing, onDone }: { existing?: any; onDone: (id: string) => void }) {
+  const [entityId] = useState<string>(() => existing?.id ?? crypto.randomUUID());
   const [name, setName] = useState(existing?.name ?? "");
   const [photo, setPhoto] = useState<string | undefined>(existing?.photo);
   const [ingredients, setIngredients] = useState<string>(existing?.ingredients?.join("\n") ?? "");
@@ -133,12 +134,12 @@ function RecipeForm({ existing, onDone }: { existing?: any; onDone: (id: string)
       aiGeneratedFields: aiGeneratedFields.length > 0 ? aiGeneratedFields : undefined,
     };
     if (existing) { updateRecipe(existing.id, payload); toast.success("Recipe updated"); onDone(existing.id); }
-    else { const r = addRecipe(payload as any); toast.success("Recipe saved"); onDone(r.id); }
+    else { const r = addRecipe({ ...payload, id: entityId } as any); toast.success("Recipe saved"); onDone(r.id); }
   }
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <PhotoField value={photo} onChange={setPhoto} kind="recipe" />
+      <PhotoField value={photo} onChange={setPhoto} kind="recipe" entityType="recipes" entityId={entityId} />
       <AutofillBox onFill={autofill} />
 
       <Field label="Name"><TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="Garlicky Lemon Chicken" /></Field>
@@ -221,6 +222,7 @@ function RecipeForm({ existing, onDone }: { existing?: any; onDone: (id: string)
 
 // ---------- Drink ----------
 function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) => void }) {
+  const [entityId] = useState<string>(() => existing?.id ?? crypto.randomUUID());
   const [kind, setKind] = useState<DrinkKind>(existing?.drinkKind ?? "espresso");
   const [name, setName] = useState(existing?.name ?? "");
   const [photo, setPhoto] = useState<string | undefined>(existing?.photo);
@@ -282,12 +284,12 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
       };
     }
     if (existing) { updateDrink(existing.id, payload); toast.success("Drink updated"); onDone(existing.id); }
-    else { const d = addDrink(payload); toast.success("Drink saved"); onDone(d.id); }
+    else { const d = addDrink({ ...payload, id: entityId }); toast.success("Drink saved"); onDone(d.id); }
   }
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <PhotoField value={photo} onChange={setPhoto} kind={kind === "espresso" ? "espresso" : "drink"} />
+      <PhotoField value={photo} onChange={setPhoto} kind={kind === "espresso" ? "espresso" : "drink"} entityType="drinks" entityId={entityId} />
       <AutofillBox onFill={autofill} />
 
       <Field label="Drink category">
@@ -344,6 +346,7 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
 interface DraftItem { name: string; notes: string; chaseRating?: number; chloeRating?: number; wouldOrderAgain: boolean }
 
 function RestaurantForm({ existing, onDone }: { existing?: any; onDone: (id: string) => void }) {
+  const [entityId] = useState<string>(() => existing?.id ?? crypto.randomUUID());
   const [name, setName] = useState(existing?.name ?? "");
   const [city, setCity] = useState(existing?.city ?? "");
   const [state, setState] = useState(existing?.state ?? "");
@@ -386,7 +389,7 @@ function RestaurantForm({ existing, onDone }: { existing?: any; onDone: (id: str
       toast.success("Restaurant updated");
       onDone(existing.id);
     } else {
-      const r = addRestaurant(payload as any);
+      const r = addRestaurant({ ...payload, id: entityId } as any);
       dishes.filter((d) => d.name.trim()).forEach((d) => addRestaurantItem(r.id, "dishes", {
         name: d.name.trim(), notes: d.notes || undefined, chaseRating: d.chaseRating, chloeRating: d.chloeRating, wouldOrderAgain: d.wouldOrderAgain,
       }));
@@ -400,7 +403,7 @@ function RestaurantForm({ existing, onDone }: { existing?: any; onDone: (id: str
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <PhotoField value={photo} onChange={setPhoto} kind="restaurant" />
+      <PhotoField value={photo} onChange={setPhoto} kind="restaurant" entityType="restaurants" entityId={entityId} />
       <AutofillBox onFill={autofill} />
 
       <Field label="Restaurant name"><TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="Carbone" /></Field>
@@ -513,6 +516,7 @@ function DraftItemList({
 
 // ---------- Pantry ----------
 function PantryForm({ existing, onDone }: { existing?: any; onDone: (id: string) => void }) {
+  const [entityId] = useState<string>(() => existing?.id ?? crypto.randomUUID());
   const [name, setName] = useState(existing?.name ?? "");
   const [photo, setPhoto] = useState<string | undefined>(existing?.photo);
   const [brand, setBrand] = useState(existing?.brand ?? "");
@@ -535,12 +539,12 @@ function PantryForm({ existing, onDone }: { existing?: any; onDone: (id: string)
       chaseRating: chase, chloeRating: chloe, wouldBuyAgain,
     };
     if (existing) { updatePantryItem(existing.id, payload); toast.success("Pantry item updated"); onDone(existing.id); }
-    else { const p = addPantryItem(payload as any); toast.success("Pantry item saved"); onDone(p.id); }
+    else { const p = addPantryItem({ ...payload, id: entityId } as any); toast.success("Pantry item saved"); onDone(p.id); }
   }
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <PhotoField value={photo} onChange={setPhoto} kind="pantry" />
+      <PhotoField value={photo} onChange={setPhoto} kind="pantry" entityType="pantry_items" entityId={entityId} />
 
       <Field label="Item name">
         <TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="Calabrian Chili Paste" />
