@@ -33,7 +33,7 @@ function DrinkDetail() {
           <ConfirmDelete
             name={d.name}
             onConfirm={() => { deleteDrink(d.id); navigate({ to: "/drinks" }); }}
-            trigger={<button className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+            trigger={<button aria-label="Delete drink" className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
           />
         </div>
       </div>

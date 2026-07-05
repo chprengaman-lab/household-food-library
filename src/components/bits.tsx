@@ -77,6 +77,7 @@ export function Stepper({ value, onChange, min = 0 }: { value: number; onChange:
     <div className="inline-flex items-center gap-2 rounded-full border border-bone/15 bg-graphite p-1">
       <button
         type="button"
+        aria-label="Decrease"
         onClick={() => onChange(Math.max(min, value - 1))}
         className="grid h-9 w-9 place-items-center rounded-full bg-slate text-bone-dim hover:text-bone"
       >
@@ -85,6 +86,7 @@ export function Stepper({ value, onChange, min = 0 }: { value: number; onChange:
       <span className="tnum lining min-w-[2ch] text-center font-display text-xl text-bone">{value}</span>
       <button
         type="button"
+        aria-label="Increase"
         onClick={() => onChange(value + 1)}
         className="grid h-9 w-9 place-items-center rounded-full bg-saffron text-noir hover:opacity-90"
       >
@@ -306,14 +308,11 @@ export function AutofillBox({ onFill }: { onFill: (notes: string) => Promise<voi
   async function handleGenerate() {
     const notes = text.trim();
     if (!notes || loading) return;
-    console.log("[autofill] Generate Draft clicked — text length:", notes.length);
     setLoading(true);
     setDrafted(false);
     setError(null);
     try {
-      console.log("[autofill] AI request starting...");
       await onFill(notes);
-      console.log("[autofill] AI request succeeded");
       setDrafted(true);
     } catch (err) {
       const msg =

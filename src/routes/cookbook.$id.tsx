@@ -34,7 +34,7 @@ function RecipeDetail() {
           <ConfirmDelete
             name={r.name}
             onConfirm={() => { deleteRecipe(r.id); navigate({ to: "/cookbook" }); }}
-            trigger={<button className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+            trigger={<button aria-label="Delete recipe" className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
           />
         </div>
       </div>

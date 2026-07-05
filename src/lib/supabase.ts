@@ -27,9 +27,7 @@ export const supabase = !supabaseConfigError
     })
   : null;
 
-if (supabase) {
-  console.log("[supabase] client created — url:", url, "| detectSessionInUrl: true | flowType: implicit");
-} else {
+if (!supabase) {
   console.warn("[supabase] client NOT created — missing env vars:", missing);
 }
 

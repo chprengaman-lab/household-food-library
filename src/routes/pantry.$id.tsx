@@ -60,7 +60,7 @@ function PantryDetail() {
             name={p.name}
             onConfirm={() => { deletePantryItem(p.id); navigate({ to: "/pantry" }); }}
             trigger={
-              <button className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive">
+              <button aria-label="Delete item" className="grid h-9 w-9 place-items-center rounded-full bg-cream text-ink/60 hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </button>
             }

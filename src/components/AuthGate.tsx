@@ -14,35 +14,18 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!supabase) return;
 
-    // ── mount diagnostics ────────────────────────────────────────────────────
-    const href = typeof window !== "undefined" ? window.location.href : "(SSR)";
-    const params =
-      typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const hash =
-      typeof window !== "undefined" ? window.location.hash : "";
-
-    const hasCode = params?.has("code") ?? false;
-    // Implicit flow: Supabase returns tokens in the URL fragment, not query params
-    const hasAccessToken = hash.includes("access_token");
-    const oauthError = params?.get("error") ?? null;
-    const oauthErrorDesc = params?.get("error_description") ?? null;
-
-    console.log("[auth] AuthGate mounted");
-    console.log("[auth] window.location.href:", href);
-    console.log("[auth] URL contains ?code=:", hasCode);
-    console.log("[auth] URL hash contains #access_token=:", hasAccessToken);
-
-    if (oauthError) {
-      console.error(
-        "[auth] OAuth error param in URL — error:", oauthError,
-        "| description:", oauthErrorDesc,
-      );
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const oauthError = params.get("error");
+      if (oauthError) {
+        const desc = params.get("error_description");
+        console.error("[auth] OAuth error:", oauthError, desc ? `— ${desc}` : "");
+      }
     }
 
     function resolve(u: User | null) {
       const email = u?.email ?? null;
       const allowed = email ? ALLOWLIST.includes(email) : false;
-      console.log("[auth] resolve — email:", email, "in allowlist:", allowed);
       if (u && allowed) {
         setCurrentUser(u.email!);
         void loadFromCloud();
@@ -55,25 +38,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     // callback this is usually null until Supabase's detectSessionInUrl exchange
     // completes, at which point SIGNED_IN fires via onAuthStateChange below.
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log("[auth] getSession result — session:", !!session, "email:", session?.user?.email ?? null);
       if (error) console.error("[auth] getSession error:", error.message);
       resolve(session?.user ?? null);
     });
 
-    // onAuthStateChange covers every transition including the automatic PKCE
-    // code exchange that fires SIGNED_IN after detectSessionInUrl processes
-    // the ?code= query param.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("[auth] onAuthStateChange — event:", event, "session:", !!session, "email:", session?.user?.email ?? null);
       if (event === "SIGNED_IN" && typeof window !== "undefined") {
-        // Implicit flow: clean up #access_token fragment from URL
+        // Clean up OAuth tokens/codes from the URL after sign-in
         if (window.location.hash.includes("access_token")) {
-          console.log("[auth] cleaning up #access_token from URL hash");
           window.history.replaceState({}, "", "/");
         }
-        // PKCE flow (fallback): clean up ?code= query param
         if (window.location.search.includes("code=")) {
-          console.log("[auth] cleaning up ?code= from URL");
           window.history.replaceState({}, "", "/");
         }
       }
@@ -137,42 +112,11 @@ function LoadingScreen() {
 // ── Sign-in ───────────────────────────────────────────────────────────────────
 
 async function signInWithGoogle() {
-  const redirectTo = `${window.location.origin}/`;
-  console.log("[auth] signInWithOAuth — provider: google, redirectTo:", redirectTo);
-
-  // skipBrowserRedirect: true lets us log the authorize URL before leaving.
-  const { data, error } = await supabase!.auth.signInWithOAuth({
+  const { error } = await supabase!.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo, skipBrowserRedirect: true },
+    options: { redirectTo: `${window.location.origin}/` },
   });
-
-  if (error) {
-    console.error("[auth] signInWithOAuth error:", error.message);
-    return;
-  }
-
-  if (data?.url) {
-    // Log safe parts of the authorize URL (no tokens — just structural params)
-    try {
-      const u = new URL(data.url);
-      console.log("[auth] authorize URL host:", u.host);
-      console.log("[auth] authorize URL pathname:", u.pathname);
-      console.log("[auth] authorize URL params:", {
-        provider: u.searchParams.get("provider"),
-        has_redirect_to: u.searchParams.has("redirect_to"),
-        redirect_to_value: u.searchParams.get("redirect_to"),
-        has_code_challenge: u.searchParams.has("code_challenge"),
-        has_response_type: u.searchParams.has("response_type"),
-        response_type: u.searchParams.get("response_type"),
-      });
-    } catch {
-      console.log("[auth] authorize URL (raw):", data.url.slice(0, 80) + "…");
-    }
-    console.log("[auth] redirecting to Supabase authorize...");
-    window.location.assign(data.url);
-  } else {
-    console.warn("[auth] signInWithOAuth returned no URL");
-  }
+  if (error) console.error("[auth] signInWithOAuth error:", error.message);
 }
 
 function SignInScreen() {

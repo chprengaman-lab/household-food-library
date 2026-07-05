@@ -478,6 +478,7 @@ function DraftItemList({
             />
             <button
               type="button"
+              aria-label="Remove item"
               onClick={() => setItems(items.filter((_, i) => i !== idx))}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate text-bone-dim hover:text-oxblood"
             >
@@ -629,7 +630,7 @@ function StoreSelector({ value, onChange }: { value: string[]; onChange: (v: str
           {customStores.map((s) => (
             <span key={s} className="inline-flex items-center gap-1 rounded-full bg-saffron/10 px-2.5 py-1 text-xs text-bone">
               {s}
-              <button type="button" onClick={() => onChange(value.filter((x) => x !== s))} className="ml-0.5 text-bone-dim hover:text-saffron">
+              <button type="button" aria-label={`Remove ${s}`} onClick={() => onChange(value.filter((x) => x !== s))} className="ml-0.5 text-bone-dim hover:text-saffron">
                 <X className="h-3 w-3" />
               </button>
             </span>
@@ -638,7 +639,7 @@ function StoreSelector({ value, onChange }: { value: string[]; onChange: (v: str
       )}
       <form onSubmit={addCustom} className="flex gap-2">
         <TextInput value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Other store…" />
-        <button type="submit" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-saffron text-noir">
+        <button type="submit" aria-label="Add store" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-saffron text-noir">
           <Plus className="h-4 w-4" />
         </button>
       </form>

@@ -22,7 +22,6 @@ export function AppShell({
   kicker?: string;
   title?: string;
   right?: ReactNode;
-  folio?: string;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (

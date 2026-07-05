@@ -7,6 +7,7 @@ import {
   useStore,
   drinkKindLabel,
   householdRating,
+  restaurantLocation,
   type Recipe,
   type Drink,
   type Restaurant,
@@ -315,11 +316,12 @@ function SearchResults({ query, setQuery }: { query: string; setQuery: (v: strin
   const total = rRecipes.length + rDrinks.length + rRest.length + rPantry.length;
 
   return (
-    <AppShell folio="00">
+    <AppShell>
       <div className="relative mb-6">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-bone-dim/60" />
         <input
           autoFocus
+          aria-label="Search your library"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="h-12 w-full rounded-md border border-bone/15 bg-graphite pl-11 pr-4 text-sm text-bone outline-none ring-saffron/40 focus:ring-2"
@@ -447,7 +449,7 @@ function RestaurantEditorial({ r, highlight }: { r: Restaurant; highlight?: stri
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="folio">{r.location ?? "Restaurant"}</p>
+          <p className="folio">{restaurantLocation(r) || "Restaurant"}</p>
           <h3 className="mt-1 font-display text-[28px] italic leading-[1] text-bone">{r.name}</h3>
           <p className="folio mt-2 text-bone-dim/70">
             {r.dishes.length} dishes · {r.drinks.length} drinks

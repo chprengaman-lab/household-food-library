@@ -134,13 +134,15 @@ function uid() {
 }
 
 let _currentEmail = "";
+let _cloudLoadTriggered = false;
 
 export function setCurrentUser(email: string) {
   _currentEmail = email;
 }
 
 export async function loadFromCloud(): Promise<void> {
-  if (!supabase) return;
+  if (!supabase || _cloudLoadTriggered) return;
+  _cloudLoadTriggered = true;
   try {
     const data = await fetchAllData();
     cache = data;
@@ -149,6 +151,7 @@ export async function loadFromCloud(): Promise<void> {
       "drinks:", data.drinks.length, "restaurants:", data.restaurants.length,
       "pantry:", data.pantryItems.length);
   } catch (e) {
+    _cloudLoadTriggered = false;
     console.error("[store] loadFromCloud failed — keeping local data:", e);
   }
 }
