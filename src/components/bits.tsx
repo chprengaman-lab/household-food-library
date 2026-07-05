@@ -300,22 +300,27 @@ export function AutofillBox({ onFill }: { onFill: (notes: string) => Promise<voi
   const [drafted, setDrafted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // NOTE: This component is always rendered inside a <form>. We intentionally
+  // use a plain <div> + type="button" here — nested <form> elements are invalid
+  // HTML and cause the browser to submit the outer form instead of calling onFill.
+  async function handleGenerate() {
     const notes = text.trim();
     if (!notes || loading) return;
+    console.log("[autofill] Generate Draft clicked — text length:", notes.length);
     setLoading(true);
     setDrafted(false);
     setError(null);
     try {
+      console.log("[autofill] AI request starting...");
       await onFill(notes);
+      console.log("[autofill] AI request succeeded");
       setDrafted(true);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Generation failed. Please try again.",
-      );
+      const msg =
+        err instanceof Error ? err.message : "Generation failed. Please try again.";
+      console.error("[autofill] AI request failed:", msg);
+      // Preserve the typed text so the user can retry without re-pasting.
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -327,7 +332,7 @@ export function AutofillBox({ onFill }: { onFill: (notes: string) => Promise<voi
         <Sparkles className="h-4 w-4" />
         <span className="folio">Auto-fill from notes</span>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-2.5">
+      <div className="space-y-2.5">
         <TextArea
           value={text}
           onChange={(e) => { setText(e.target.value); setDrafted(false); setError(null); }}
@@ -335,8 +340,9 @@ export function AutofillBox({ onFill }: { onFill: (notes: string) => Promise<voi
           placeholder="Paste a recipe, messy notes, restaurant review, or drink recipe..."
         />
         <button
-          type="submit"
+          type="button"
           disabled={loading || !text.trim()}
+          onClick={handleGenerate}
           className="inline-flex h-10 items-center gap-2 rounded-md bg-saffron px-4 text-sm font-semibold text-noir transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {loading ? (
@@ -361,7 +367,7 @@ export function AutofillBox({ onFill }: { onFill: (notes: string) => Promise<voi
             ⚠ {error}
           </p>
         )}
-      </form>
+      </div>
     </div>
   );
 }

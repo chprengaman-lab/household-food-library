@@ -142,8 +142,11 @@ type DraftType = keyof typeof SYSTEM_PROMPTS;
 const callAI = createServerFn({ method: "POST" })
   .validator((data: { text: string; type: DraftType }) => data)
   .handler(async ({ data }) => {
+    console.log("[ai] callAI — type:", data.type, "| text length:", data.text.length);
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
+      console.error("[ai] ANTHROPIC_API_KEY is not set — cannot call Anthropic");
       // Throw a user-facing message — the raw env-var name must not reach the client.
       throw new Error("AI generation is not available right now. Please try again later.");
     }
@@ -152,12 +155,14 @@ const callAI = createServerFn({ method: "POST" })
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const client = new Anthropic({ apiKey });
 
+    console.log("[ai] Anthropic request starting — model: claude-sonnet-4-6");
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: SYSTEM_PROMPTS[data.type],
       messages: [{ role: "user", content: data.text }],
     });
+    console.log("[ai] Anthropic response received — stop_reason:", message.stop_reason);
 
     const raw =
       message.content[0].type === "text" ? message.content[0].text : "";
@@ -166,9 +171,11 @@ const callAI = createServerFn({ method: "POST" })
     const cleaned = raw.replace(/^```(?:json)?\s*|\s*```\s*$/g, "").trim();
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      console.error("[ai] Anthropic returned unexpected format — raw:", raw.slice(0, 100));
       throw new Error("AI returned an unexpected format. Please try again.");
     }
 
+    console.log("[ai] Parsed draft fields:", Object.keys(JSON.parse(jsonMatch[0])));
     return JSON.parse(jsonMatch[0]);
   });
 
