@@ -1,4 +1,4 @@
-import { householdRating, type AnyItem, type Drink, type PantryItem, type Recipe, type Restaurant } from "./store";
+import { householdRating, type AnyItem, type Drink, type PantryItem, type Recipe, type Restaurant, type RestaurantVisit } from "./store";
 
 export type SortKey =
   | "household" | "chase" | "chloe" | "lowest-cal" | "highest-protein"
@@ -103,3 +103,30 @@ export const sortOptions: { value: SortKey; label: string }[] = [
   { value: "newest", label: "Newest" },
   { value: "alpha", label: "A–Z" },
 ];
+
+export function restaurantMatchesWithVisits(
+  r: Restaurant,
+  visits: RestaurantVisit[],
+  f: Filters,
+): boolean {
+  if (f.section !== "all" && f.section !== "restaurant") return false;
+  if (f.tags.length && !f.tags.every((t) => r.tags.includes(t))) return false;
+  if (f.minRating > 0) {
+    const h = householdRating(r);
+    if (h == null || h < f.minRating) return false;
+  }
+  if (f.query.trim()) {
+    const q = f.query.trim().toLowerCase();
+    const vText = visits
+      .filter((v) => v.restaurantId === r.id)
+      .flatMap((v) => [
+        v.notes ?? "",
+        ...v.selectedDishIds.map((id) => r.dishes.find((d) => d.id === id)?.name ?? ""),
+        ...v.selectedDrinkIds.map((id) => r.drinks.find((d) => d.id === id)?.name ?? ""),
+      ])
+      .join(" ")
+      .toLowerCase();
+    if (!restaurantText(r).includes(q) && !vText.includes(q)) return false;
+  }
+  return true;
+}

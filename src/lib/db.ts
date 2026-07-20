@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { Recipe, Drink, Restaurant, PantryItem } from "./store";
+import type { Recipe, Drink, Restaurant, PantryItem, RestaurantVisit } from "./store";
 
 export const HOUSEHOLD = "prengaman";
 
@@ -82,6 +82,14 @@ export function drinkToRow(d: Drink, email: string) {
     chase_rating: d.chaseRating ?? null,
     chloe_rating: d.chloeRating ?? null,
     espresso: d.espresso ?? null,
+    calories: d.calories ?? null,
+    protein: d.protein ?? null,
+    caffeine_mg: d.caffeineMg ?? null,
+    serving_size: d.servingSize ?? null,
+    abv_percent: d.abvPercent ?? null,
+    calorie_source: d.calorieSource ?? null,
+    protein_source: d.proteinSource ?? null,
+    caffeine_source: d.caffeineSource ?? null,
     needs_review: d.needsReview ?? null,
     ai_generated_fields: d.aiGeneratedFields ?? null,
     ai_meta: d.aiMeta ?? null,
@@ -102,6 +110,14 @@ export function rowToDrink(row: any): Drink {
     tags: row.tags ?? [],
     chaseRating: row.chase_rating ?? undefined,
     chloeRating: row.chloe_rating ?? undefined,
+    calories: row.calories ?? undefined,
+    protein: row.protein ?? undefined,
+    caffeineMg: row.caffeine_mg ?? undefined,
+    servingSize: row.serving_size ?? undefined,
+    abvPercent: row.abv_percent ?? undefined,
+    calorieSource: row.calorie_source ?? undefined,
+    proteinSource: row.protein_source ?? undefined,
+    caffeineSource: row.caffeine_source ?? undefined,
     needsReview: row.needs_review ?? undefined,
     aiGeneratedFields: row.ai_generated_fields ?? undefined,
     aiMeta: row.ai_meta ?? undefined,
@@ -197,6 +213,36 @@ export function rowToPantry(row: any): PantryItem {
   };
 }
 
+export function visitToRow(v: RestaurantVisit, email: string) {
+  return {
+    id: v.id,
+    household_id: HOUSEHOLD,
+    restaurant_id: v.restaurantId,
+    created_by: email,
+    updated_by: email,
+    created_at: new Date(v.createdAt).toISOString(),
+    updated_at: new Date().toISOString(),
+    visit_date: v.visitDate != null ? new Date(v.visitDate).toISOString() : null,
+    bill_total: v.billTotal ?? null,
+    notes: v.notes ?? null,
+    dish_ids: v.selectedDishIds,
+    drink_ids: v.selectedDrinkIds,
+  };
+}
+
+export function rowToVisit(row: any): RestaurantVisit {
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
+    visitDate: row.visit_date != null ? new Date(row.visit_date).getTime() : undefined,
+    billTotal: row.bill_total != null ? Number(row.bill_total) : undefined,
+    notes: row.notes ?? undefined,
+    selectedDishIds: row.dish_ids ?? [],
+    selectedDrinkIds: row.drink_ids ?? [],
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
 // ── CloudStore ────────────────────────────────────────────────────────────────
 
 export interface CloudStore {
@@ -204,6 +250,7 @@ export interface CloudStore {
   drinks: Drink[];
   restaurants: Restaurant[];
   pantryItems: PantryItem[];
+  visits: RestaurantVisit[];
 }
 
 // ── Fetch all ─────────────────────────────────────────────────────────────────
@@ -211,23 +258,26 @@ export interface CloudStore {
 export async function fetchAllData(): Promise<CloudStore> {
   if (!supabase) throw new Error("[db] supabase client not initialized");
 
-  const [recipesRes, drinksRes, restaurantsRes, pantryRes] = await Promise.all([
+  const [recipesRes, drinksRes, restaurantsRes, pantryRes, visitsRes] = await Promise.all([
     supabase.from("recipes").select("*").eq("household_id", HOUSEHOLD).order("created_at", { ascending: false }),
     supabase.from("drinks").select("*").eq("household_id", HOUSEHOLD).order("created_at", { ascending: false }),
     supabase.from("restaurants").select("*").eq("household_id", HOUSEHOLD).order("created_at", { ascending: false }),
     supabase.from("pantry_items").select("*").eq("household_id", HOUSEHOLD).order("created_at", { ascending: false }),
+    supabase.from("restaurant_visits").select("*").eq("household_id", HOUSEHOLD).order("visit_date", { ascending: false }),
   ]);
 
   if (recipesRes.error) throw recipesRes.error;
   if (drinksRes.error) throw drinksRes.error;
   if (restaurantsRes.error) throw restaurantsRes.error;
   if (pantryRes.error) throw pantryRes.error;
+  if (visitsRes.error) throw visitsRes.error;
 
   return {
     recipes: (recipesRes.data ?? []).map(rowToRecipe),
     drinks: (drinksRes.data ?? []).map(rowToDrink),
     restaurants: (restaurantsRes.data ?? []).map(rowToRestaurant),
     pantryItems: (pantryRes.data ?? []).map(rowToPantry),
+    visits: (visitsRes.data ?? []).map(rowToVisit),
   };
 }
 
@@ -281,6 +331,18 @@ export async function dbDeletePantry(id: string): Promise<void> {
   if (error) console.error("[db] dbDeletePantry failed:", error.message);
 }
 
+export async function dbUpsertVisit(v: RestaurantVisit, email: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from("restaurant_visits").upsert(visitToRow(v, email));
+  if (error) console.error("[db] dbUpsertVisit failed:", error.message);
+}
+
+export async function dbDeleteVisit(id: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from("restaurant_visits").delete().eq("id", id);
+  if (error) console.error("[db] dbDeleteVisit failed:", error.message);
+}
+
 export async function dbClearAll(): Promise<void> {
   if (!supabase) return;
   await Promise.all([
@@ -288,6 +350,7 @@ export async function dbClearAll(): Promise<void> {
     supabase.from("drinks").delete().eq("household_id", HOUSEHOLD),
     supabase.from("restaurants").delete().eq("household_id", HOUSEHOLD),
     supabase.from("pantry_items").delete().eq("household_id", HOUSEHOLD),
+    supabase.from("restaurant_visits").delete().eq("household_id", HOUSEHOLD),
   ]);
 }
 

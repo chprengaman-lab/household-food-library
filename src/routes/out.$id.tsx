@@ -1,16 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import * as Dialog from "@radix-ui/react-dialog";
 import { AppShell } from "@/components/AppShell";
 import {
   EmptyArt, HouseholdReadout, RatingDial, TagChip, WarningNotes,
-  Field, TextArea, TextInput, Pill, ConfirmDelete,
+  Field, TextArea, TextInput, Pill, ConfirmDelete, Label,
 } from "@/components/bits";
 import {
   addRestaurantItem, deleteRestaurant, deleteRestaurantItem, updateRestaurant, updateRestaurantItem,
-  useStore, householdRating, restaurantLocation, type RestaurantItem,
+  addVisit, updateVisit, deleteVisit,
+  useStore, householdRating, restaurantLocation, type RestaurantItem, type Restaurant, type RestaurantVisit,
 } from "@/lib/store";
 
 const search = z.object({ focus: fallback(z.string().optional(), undefined).default(undefined) });
@@ -24,10 +26,12 @@ function RestaurantDetail() {
   const { id } = Route.useParams();
   const { focus } = Route.useSearch();
   const navigate = useNavigate();
-  const { restaurants } = useStore();
+  const { restaurants, visits: allVisits } = useStore();
   const r = restaurants.find((x) => x.id === id);
   const [tab, setTab] = useState<"food" | "drinks">("food");
   const [newItemId, setNewItemId] = useState<string | null>(null);
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<RestaurantVisit | null>(null);
 
   if (!r) {
     return (
@@ -36,6 +40,10 @@ function RestaurantDetail() {
       </AppShell>
     );
   }
+
+  const visits = allVisits
+    .filter((v) => v.restaurantId === id)
+    .sort((a, b) => (b.visitDate ?? b.createdAt) - (a.visitDate ?? a.createdAt));
 
   function changeTab(t: "food" | "drinks") {
     setTab(t);
@@ -117,6 +125,36 @@ function RestaurantDetail() {
         </div>
       )}
 
+      {/* ── Visit stats ── */}
+      {visits.length > 0 && (() => {
+        const withBill = visits.filter((v) => v.billTotal != null);
+        const avg = withBill.length > 0 ? withBill.reduce((s, v) => s + v.billTotal!, 0) / withBill.length : undefined;
+        const last = visits[0]?.billTotal;
+        return (
+          <section className="mt-5 rounded-2xl border border-bone/10 bg-graphite p-5">
+            <p className="folio mb-3 text-saffron">Visit History</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="tnum lining font-display text-2xl text-bone">{visits.length}</p>
+                <p className="folio mt-0.5">Visits</p>
+              </div>
+              {avg != null && (
+                <div>
+                  <p className="tnum lining font-display text-2xl text-saffron">${avg.toFixed(2)}</p>
+                  <p className="folio mt-0.5">Avg spend</p>
+                </div>
+              )}
+              {last != null && (
+                <div>
+                  <p className="tnum lining font-display text-2xl text-bone">${last.toFixed(2)}</p>
+                  <p className="folio mt-0.5">Last visit</p>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
+
       {/* ── Food / Drinks tab bar ── */}
       <div className="mt-7 flex gap-1 rounded-2xl bg-cream p-1">
         {(["food", "drinks"] as const).map((t) => {
@@ -168,6 +206,63 @@ function RestaurantDetail() {
           onAdded={(addedId) => setNewItemId(addedId)}
         />
       </div>
+
+      {/* ── Visit History section ── */}
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-xl text-bone">Visits</h2>
+          <button
+            type="button"
+            onClick={() => { setEditingVisit(null); setVisitDialogOpen(true); }}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-saffron px-3 text-xs font-semibold text-noir"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Visit
+          </button>
+        </div>
+
+        {visits.length === 0 ? (
+          <p className="py-6 text-center text-sm text-bone-dim">No visits logged yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {visits.map((v) => (
+              <VisitCard
+                key={v.id}
+                visit={v}
+                restaurant={r}
+                onEdit={() => { setEditingVisit(v); setVisitDialogOpen(true); }}
+                onDelete={() => deleteVisit(v.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Visit Dialog ── */}
+      <Dialog.Root
+        open={visitDialogOpen}
+        onOpenChange={(open) => { setVisitDialogOpen(open); if (!open) setEditingVisit(null); }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-noir/70 backdrop-blur-sm" />
+          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-3xl border-t border-bone/15 bg-graphite px-5 pb-8 pt-5 shadow-2xl sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:px-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-xl text-bone">
+                {editingVisit ? "Edit Visit" : "Log a Visit"}
+              </h2>
+              <Dialog.Close asChild>
+                <button aria-label="Close" className="grid h-8 w-8 place-items-center rounded-full bg-slate text-bone-dim hover:text-bone">
+                  <X className="h-4 w-4" />
+                </button>
+              </Dialog.Close>
+            </div>
+            <VisitForm
+              restaurant={r}
+              existing={editingVisit ?? undefined}
+              onSave={() => { setVisitDialogOpen(false); setEditingVisit(null); }}
+            />
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </AppShell>
   );
 }
@@ -419,6 +514,275 @@ function AddItemForm({
           className="rounded-xl border border-bone/15 px-4 py-2.5 text-sm text-bone-dim transition-colors hover:text-bone"
         >
           Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ── Visit Card ────────────────────────────────────────────────────────────────
+
+function VisitCard({
+  visit,
+  restaurant,
+  onEdit,
+  onDelete,
+}: {
+  visit: RestaurantVisit;
+  restaurant: Restaurant;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const orderedDishes = visit.selectedDishIds
+    .map((id) => restaurant.dishes.find((d) => d.id === id))
+    .filter(Boolean) as RestaurantItem[];
+  const orderedDrinks = visit.selectedDrinkIds
+    .map((id) => restaurant.drinks.find((d) => d.id === id))
+    .filter(Boolean) as RestaurantItem[];
+  const ordered = [...orderedDishes, ...orderedDrinks];
+
+  return (
+    <div className="rounded-2xl border border-bone/10 bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          {visit.visitDate != null && (
+            <p className="folio text-saffron">
+              {new Date(visit.visitDate).toLocaleDateString(undefined, {
+                month: "long", day: "numeric", year: "numeric",
+              })}
+            </p>
+          )}
+          {visit.billTotal != null && (
+            <p className="tnum lining mt-0.5 font-display text-xl text-bone">
+              ${visit.billTotal.toFixed(2)}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 gap-1.5">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="grid h-8 w-8 place-items-center rounded-full bg-slate text-bone-dim hover:text-bone"
+            aria-label="Edit visit"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <ConfirmDelete
+            name="this visit"
+            onConfirm={onDelete}
+            trigger={
+              <button
+                type="button"
+                aria-label="Delete visit"
+                className="grid h-8 w-8 place-items-center rounded-full bg-slate text-bone-dim hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            }
+          />
+        </div>
+      </div>
+      {ordered.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {ordered.map((it) => (
+            <span
+              key={it.id}
+              className="rounded-full bg-bone/10 px-2.5 py-1 text-xs text-bone-dim"
+            >
+              {it.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {visit.notes && (
+        <p className="mt-2 text-sm leading-relaxed text-bone-dim">{visit.notes}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Visit Form ────────────────────────────────────────────────────────────────
+
+function VisitForm({
+  restaurant,
+  existing,
+  onSave,
+}: {
+  restaurant: Restaurant;
+  existing?: RestaurantVisit;
+  onSave: () => void;
+}) {
+  const [visitDate, setVisitDate] = useState(
+    existing?.visitDate
+      ? new Date(existing.visitDate).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
+  );
+  const [billTotal, setBillTotal] = useState(
+    existing?.billTotal != null ? existing.billTotal.toFixed(2) : "",
+  );
+  const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [selectedDishIds, setSelectedDishIds] = useState<string[]>(
+    existing?.selectedDishIds ?? [],
+  );
+  const [selectedDrinkIds, setSelectedDrinkIds] = useState<string[]>(
+    existing?.selectedDrinkIds ?? [],
+  );
+  const [quickName, setQuickName] = useState("");
+  const [quickSection, setQuickSection] = useState<"dishes" | "drinks">("dishes");
+
+  const dishes = restaurant.dishes;
+  const drinks = restaurant.drinks;
+
+  function toggleId(
+    id: string,
+    selected: string[],
+    setSelected: (v: string[]) => void,
+  ) {
+    setSelected(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  }
+
+  function handleQuickAdd(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!quickName.trim()) return;
+    const item = addRestaurantItem(restaurant.id, quickSection, { name: quickName.trim() });
+    if (quickSection === "dishes") {
+      setSelectedDishIds((prev) => [...prev, item.id]);
+    } else {
+      setSelectedDrinkIds((prev) => [...prev, item.id]);
+    }
+    setQuickName("");
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const payload = {
+      restaurantId: restaurant.id,
+      visitDate: visitDate ? new Date(visitDate).getTime() : undefined,
+      billTotal: billTotal.trim() ? Number(billTotal) : undefined,
+      notes: notes.trim() || undefined,
+      selectedDishIds,
+      selectedDrinkIds,
+    };
+    if (existing) {
+      updateVisit(existing.id, payload);
+    } else {
+      addVisit({ ...payload, id: crypto.randomUUID() });
+    }
+    onSave();
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Date">
+          <TextInput
+            type="date"
+            value={visitDate}
+            onChange={(e) => setVisitDate(e.target.value)}
+          />
+        </Field>
+        <Field label="Bill total ($)">
+          <TextInput
+            inputMode="decimal"
+            value={billTotal}
+            onChange={(e) => setBillTotal(e.target.value)}
+            placeholder="42.50"
+          />
+        </Field>
+      </div>
+
+      <Field label="Notes">
+        <TextArea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="What stood out, who came, anything to remember…"
+        />
+      </Field>
+
+      {dishes.length > 0 && (
+        <div>
+          <Label>Dishes ordered</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {dishes.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => toggleId(d.id, selectedDishIds, setSelectedDishIds)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  selectedDishIds.includes(d.id)
+                    ? "border-saffron bg-saffron/15 text-saffron"
+                    : "border-bone/15 bg-graphite text-bone-dim hover:border-bone/30"
+                }`}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {drinks.length > 0 && (
+        <div>
+          <Label>Drinks ordered</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {drinks.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => toggleId(d.id, selectedDrinkIds, setSelectedDrinkIds)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  selectedDrinkIds.includes(d.id)
+                    ? "border-saffron bg-saffron/15 text-saffron"
+                    : "border-bone/15 bg-graphite text-bone-dim hover:border-bone/30"
+                }`}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quick-add a new dish or drink */}
+      <div className="rounded-xl border border-bone/10 bg-noir/40 p-3">
+        <div className="mb-2 flex items-center gap-1">
+          <span className="folio text-bone-dim">Quick add</span>
+          {(["dishes", "drinks"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setQuickSection(s)}
+              className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+                quickSection === s ? "bg-saffron text-noir" : "text-bone-dim hover:text-bone"
+              }`}
+            >
+              {s === "dishes" ? "Dish" : "Drink"}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <TextInput
+            value={quickName}
+            onChange={(e) => setQuickName(e.target.value)}
+            placeholder={quickSection === "dishes" ? "New dish name…" : "New drink name…"}
+          />
+          <button
+            type="button"
+            onClick={handleQuickAdd}
+            disabled={!quickName.trim()}
+            className="shrink-0 rounded-xl bg-saffron px-3 py-2 text-xs font-semibold text-noir disabled:opacity-40"
+          >
+            Add & Select
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          className="flex-1 rounded-xl bg-saffron py-3 text-sm font-semibold text-noir"
+        >
+          {existing ? "Save Changes" : "Log Visit"}
         </button>
       </div>
     </form>

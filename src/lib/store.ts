@@ -4,6 +4,7 @@ import {
   fetchAllData, dbUpsertRecipe, dbDeleteRecipe,
   dbUpsertDrink, dbDeleteDrink, dbUpsertRestaurant,
   dbDeleteRestaurant, dbUpsertPantry, dbDeletePantry,
+  dbUpsertVisit, dbDeleteVisit,
   dbClearAll, dbSeedAll,
 } from "./db";
 import { deletePhoto } from "./storage";
@@ -68,6 +69,14 @@ export interface Drink extends Ratings {
   tasteNotes?: string;
   espresso?: EspressoFields;
   tags: string[];
+  calories?: number;
+  protein?: number;
+  caffeineMg?: number;
+  servingSize?: string;
+  abvPercent?: number;
+  calorieSource?: "user" | "ai_estimate";
+  proteinSource?: "user" | "ai_estimate";
+  caffeineSource?: "user" | "ai_estimate";
   needsReview?: boolean;
   aiGeneratedFields?: string[];
   aiMeta?: AiMeta;
@@ -124,6 +133,17 @@ export interface PantryItem extends Ratings {
   createdAt: number;
 }
 
+export interface RestaurantVisit {
+  id: string;
+  restaurantId: string;
+  visitDate?: number;
+  billTotal?: number;
+  notes?: string;
+  selectedDishIds: string[];
+  selectedDrinkIds: string[];
+  createdAt: number;
+}
+
 export type AnyItem = Recipe | Drink | Restaurant | PantryItem;
 
 const KEY = "cookbook-v1";
@@ -170,7 +190,7 @@ function scheduleSyncRestaurant(id: string) {
   _restaurantSyncTimer.set(id, t);
 }
 
-function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]; pantryItems: PantryItem[] } {
+function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]; pantryItems: PantryItem[]; visits: RestaurantVisit[] } {
   const now = Date.now();
   return {
     recipes: [
@@ -274,6 +294,7 @@ function seed(): { recipes: Recipe[]; drinks: Drink[]; restaurants: Restaurant[]
         createdAt: now - 500,
       },
     ],
+    visits: [],
   };
 }
 
@@ -282,10 +303,11 @@ interface Store {
   drinks: Drink[];
   restaurants: Restaurant[];
   pantryItems: PantryItem[];
+  visits: RestaurantVisit[];
 }
 
 function load(): Store {
-  if (typeof window === "undefined") return { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
+  if (typeof window === "undefined") return { recipes: [], drinks: [], restaurants: [], pantryItems: [], visits: [] };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) {
@@ -305,9 +327,10 @@ function load(): Store {
         return r;
       }),
       pantryItems: p.pantryItems ?? [],
+      visits: p.visits ?? [],
     };
   } catch {
-    return { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
+    return { recipes: [], drinks: [], restaurants: [], pantryItems: [], visits: [] };
   }
 }
 
@@ -318,7 +341,7 @@ function snap(): Store {
   if (cache === null) cache = load();
   return cache;
 }
-const emptyServer: Store = { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
+const emptyServer: Store = { recipes: [], drinks: [], restaurants: [], pantryItems: [], visits: [] };
 
 function persist() {
   if (cache && typeof window !== "undefined") localStorage.setItem(KEY, JSON.stringify(cache));
@@ -467,8 +490,35 @@ export function deletePantryItem(id: string) {
   void dbDeletePantry(id);
 }
 
+export function addVisit(v: Omit<RestaurantVisit, "id" | "createdAt"> & { id?: string }): RestaurantVisit {
+  const item: RestaurantVisit = {
+    ...v,
+    id: v.id ?? uid(),
+    createdAt: Date.now(),
+    selectedDishIds: v.selectedDishIds ?? [],
+    selectedDrinkIds: v.selectedDrinkIds ?? [],
+  };
+  cache = { ...snap(), visits: [item, ...snap().visits] };
+  persist();
+  if (_currentEmail) void dbUpsertVisit(item, _currentEmail);
+  return item;
+}
+
+export function updateVisit(id: string, patch: Partial<RestaurantVisit>) {
+  cache = { ...snap(), visits: snap().visits.map((v) => v.id === id ? { ...v, ...patch } : v) };
+  persist();
+  const updated = cache!.visits.find((v) => v.id === id);
+  if (updated && _currentEmail) void dbUpsertVisit(updated, _currentEmail);
+}
+
+export function deleteVisit(id: string) {
+  cache = { ...snap(), visits: snap().visits.filter((v) => v.id !== id) };
+  persist();
+  void dbDeleteVisit(id);
+}
+
 export async function clearAll(): Promise<void> {
-  cache = { recipes: [], drinks: [], restaurants: [], pantryItems: [] };
+  cache = { recipes: [], drinks: [], restaurants: [], pantryItems: [], visits: [] };
   persist();
   await dbClearAll();
 }

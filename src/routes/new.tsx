@@ -241,6 +241,15 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
   const [ingredients, setIngredients] = useState<string>(existing?.ingredients?.join("\n") ?? "");
   const [instructions, setInstructions] = useState<string>(existing?.instructions?.join("\n") ?? "");
   const [aiGeneratedFields, setAiGeneratedFields] = useState<string[]>(existing?.aiGeneratedFields ?? []);
+  // nutrition
+  const [calories, setCalories] = useState<string>(existing?.calories?.toString() ?? "");
+  const [protein, setProtein] = useState<string>(existing?.protein?.toString() ?? "");
+  const [caffeineMg, setCaffeineMg] = useState<string>(existing?.caffeineMg?.toString() ?? "");
+  const [servingSize, setServingSize] = useState(existing?.servingSize ?? "");
+  const [abvPercent, setAbvPercent] = useState<string>(existing?.abvPercent?.toString() ?? "");
+  const [calorieSource, setCalorieSource] = useState<"user" | "ai_estimate" | undefined>(existing?.calorieSource);
+  const [proteinSource, setProteinSource] = useState<"user" | "ai_estimate" | undefined>(existing?.proteinSource);
+  const [caffeineSource, setCaffeineSource] = useState<"user" | "ai_estimate" | undefined>(existing?.caffeineSource);
 
   async function autofill(text: string) {
     const draft = await generateDrinkDraft(text);
@@ -259,6 +268,11 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
       if (draft.espresso.grindSetting && !grind) { setGrind(draft.espresso.grindSetting); filled.push("grindSetting"); }
       if (draft.espresso.milk && !milk) { setMilk(draft.espresso.milk); filled.push("milk"); }
     }
+    if (draft.calories != null && !calories) { setCalories(String(draft.calories)); setCalorieSource("ai_estimate"); filled.push("calories"); }
+    if (draft.protein != null && !protein) { setProtein(String(draft.protein)); setProteinSource("ai_estimate"); filled.push("protein"); }
+    if (draft.caffeineMg != null && !caffeineMg) { setCaffeineMg(String(draft.caffeineMg)); setCaffeineSource("ai_estimate"); filled.push("caffeineMg"); }
+    if (draft.servingSize && !servingSize) { setServingSize(draft.servingSize); filled.push("servingSize"); }
+    if (draft.abvPercent != null && !abvPercent) { setAbvPercent(String(draft.abvPercent)); filled.push("abvPercent"); }
     if (filled.length > 0) setAiGeneratedFields((prev) => [...new Set([...prev, ...filled])]);
   }
 
@@ -272,6 +286,14 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
       ingredients: ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
       instructions: instructions.split("\n").map((s) => s.trim()).filter(Boolean),
       aiGeneratedFields: aiGeneratedFields.length > 0 ? aiGeneratedFields : undefined,
+      calories: calories.trim() ? Number(calories) : undefined,
+      protein: protein.trim() ? Number(protein) : undefined,
+      caffeineMg: caffeineMg.trim() ? Number(caffeineMg) : undefined,
+      servingSize: servingSize.trim() || undefined,
+      abvPercent: abvPercent.trim() ? Number(abvPercent) : undefined,
+      calorieSource: calories.trim() ? calorieSource : undefined,
+      proteinSource: protein.trim() ? proteinSource : undefined,
+      caffeineSource: caffeineMg.trim() ? caffeineSource : undefined,
     };
     if (kind === "espresso") {
       payload.espresso = {
@@ -315,6 +337,24 @@ function DrinkForm({ existing, onDone }: { existing?: any; onDone: (id: string) 
           <Field label="Milk"><TextInput value={milk} onChange={(e) => setMilk(e.target.value)} placeholder="Whole" /></Field>
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Calories per serving">
+          <TextInput inputMode="numeric" value={calories} onChange={(e) => { setCalories(e.target.value); setCalorieSource(e.target.value.trim() ? "user" : undefined); }} placeholder="180" />
+        </Field>
+        <Field label="Protein (g)">
+          <TextInput inputMode="decimal" value={protein} onChange={(e) => { setProtein(e.target.value); setProteinSource(e.target.value.trim() ? "user" : undefined); }} placeholder="8" />
+        </Field>
+        <Field label="Caffeine (mg)">
+          <TextInput inputMode="decimal" value={caffeineMg} onChange={(e) => { setCaffeineMg(e.target.value); setCaffeineSource(e.target.value.trim() ? "user" : undefined); }} placeholder="63" />
+        </Field>
+        <Field label="Serving size">
+          <TextInput value={servingSize} onChange={(e) => setServingSize(e.target.value)} placeholder="12 oz" />
+        </Field>
+        <Field label="ABV (%)">
+          <TextInput inputMode="decimal" value={abvPercent} onChange={(e) => setAbvPercent(e.target.value)} placeholder="40" />
+        </Field>
+      </div>
 
       <Field label="Ingredients" hint="One per line">
         <TextArea value={ingredients} onChange={(e) => setIngredients(e.target.value)} placeholder="2 oz mezcal&#10;0.75 oz lime" />

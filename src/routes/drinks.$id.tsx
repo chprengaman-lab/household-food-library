@@ -63,6 +63,19 @@ function DrinkDetail() {
         </section>
       )}
 
+      {(d.calories != null || d.protein != null || d.caffeineMg != null || d.servingSize || d.abvPercent != null) && (
+        <section className="mt-7">
+          <h2 className="mb-3 font-display text-xl">Nutrition</h2>
+          <div className="grid grid-cols-2 gap-3 tnum">
+            {d.calories != null && <Stat k="Calories" v={String(d.calories)} aiEstimated={d.calorieSource === "ai_estimate"} />}
+            {d.protein != null && <Stat k="Protein" v={`${d.protein} g`} aiEstimated={d.proteinSource === "ai_estimate"} />}
+            {d.caffeineMg != null && <Stat k="Caffeine" v={`${d.caffeineMg} mg`} aiEstimated={d.caffeineSource === "ai_estimate"} />}
+            {d.servingSize && <Stat k="Serving" v={d.servingSize} />}
+            {d.abvPercent != null && <Stat k="ABV" v={`${d.abvPercent}%`} />}
+          </div>
+        </section>
+      )}
+
       {(d.ingredients?.length ?? 0) > 0 && (
         <section className="mt-7">
           <h2 className="mb-3 font-display text-xl">Ingredients</h2>
@@ -104,10 +117,15 @@ function DrinkDetail() {
   );
 }
 
-function Stat({ k, v }: { k: string; v: string }) {
+function Stat({ k, v, aiEstimated }: { k: string; v: string; aiEstimated?: boolean }) {
   return (
     <div className="rounded-2xl bg-cream p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/45">{k}</p>
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/45">{k}</p>
+        {aiEstimated && (
+          <span className="shrink-0 rounded bg-saffron/15 px-1 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-saffron">AI</span>
+        )}
+      </div>
       <p className="mt-0.5 text-base font-semibold text-ink">{v}</p>
     </div>
   );

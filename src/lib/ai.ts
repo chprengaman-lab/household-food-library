@@ -37,6 +37,11 @@ export interface DrinkDraft {
   instructions?: string[];
   tags?: string[];
   espresso?: Partial<EspressoFields>;
+  calories?: number;
+  protein?: number;
+  caffeineMg?: number;
+  servingSize?: string;
+  abvPercent?: number;
 }
 
 export interface RestaurantDraft {
@@ -80,7 +85,7 @@ Output only the JSON object. No explanation, no markdown fences, no other text.`
 const DRINK_SYSTEM_PROMPT = `\
 You extract drink recipe data from user-provided text and return ONLY a JSON object.
 
-Return this exact shape (omit any key you cannot determine — do not use null):
+Return this exact shape (omit any key you cannot determine or when confidence is low — do not use null):
 {
   "name": string,
   "drinkKind": "espresso" | "coffee" | "cocktail" | "mocktail" | "beer" | "wine",
@@ -95,7 +100,12 @@ Return this exact shape (omit any key you cannot determine — do not use null):
     "brewTimeSec": number,
     "grindSetting": string,
     "milk": string
-  }
+  },
+  "calories": number,
+  "protein": number,
+  "caffeineMg": number,
+  "servingSize": string,
+  "abvPercent": number
 }
 
 Field rules:
@@ -103,6 +113,11 @@ Field rules:
 - espresso: include this sub-object ONLY when drinkKind is "espresso"
 - tasteNotes: free-form tasting description
 - tags: lifestyle tags, e.g. "alcohol", "quick", "dairy free"
+- calories: estimate per serving (e.g. a standard cocktail ~150–250 kcal, a latte with whole milk ~180 kcal, a cortado ~60 kcal) — omit if confidence is low
+- protein: grams per serving — omit if negligible or confidence is low
+- caffeineMg: milligrams per serving (~63 mg per espresso shot, ~95 mg per drip coffee cup) — omit for alcoholic drinks or non-caffeinated drinks
+- servingSize: e.g. "12 oz", "4 oz", "double shot (2 oz)" — estimate if not stated; omit if unclear
+- abvPercent: alcohol by volume — include ONLY for cocktail, beer, or wine; estimate from ingredients if not stated; omit otherwise
 
 Output only the JSON object. No explanation, no markdown fences, no other text.`;
 

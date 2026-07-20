@@ -13,7 +13,7 @@ import {
   type Restaurant,
   type PantryItem,
 } from "@/lib/store";
-import { matches, sortItems, type Filters } from "@/lib/search";
+import { matches, sortItems, restaurantMatchesWithVisits, type Filters } from "@/lib/search";
 import { relTime } from "./cookbook";
 
 export const Route = createFileRoute("/")({
@@ -296,21 +296,15 @@ function HorizontalScroll({ children }: { children: React.ReactNode }) {
 
 /* === Search === */
 function SearchResults({ query, setQuery }: { query: string; setQuery: (v: string) => void }) {
-  const { recipes, drinks, restaurants, pantryItems } = useStore();
+  const { recipes, drinks, restaurants, pantryItems, visits } = useStore();
   const filters: Filters = { query, section: "all", tags: [], minRating: 0, sort: "newest" };
-  const q = query.trim().toLowerCase();
 
   const rRecipes = useMemo(() => sortItems(recipes.filter((r) => matches(r, filters)), "household"), [recipes, query]);
   const rDrinks = useMemo(() => sortItems(drinks.filter((d) => matches(d, filters)), "household"), [drinks, query]);
-  const rRest = useMemo(() => {
-    const base = restaurants.filter((r) => matches(r, filters));
-    const extra = restaurants.filter((r) =>
-      !base.includes(r) &&
-      (r.dishes.some((d) => d.name.toLowerCase().includes(q) || (d.notes ?? "").toLowerCase().includes(q)) ||
-        r.drinks.some((d) => d.name.toLowerCase().includes(q) || (d.notes ?? "").toLowerCase().includes(q)))
-    );
-    return [...base, ...extra];
-  }, [restaurants, query]);
+  const rRest = useMemo(
+    () => restaurants.filter((r) => restaurantMatchesWithVisits(r, visits, filters)),
+    [restaurants, visits, query],
+  );
   const rPantry = useMemo(() => sortItems(pantryItems.filter((p) => matches(p, filters)), "household"), [pantryItems, query]);
 
   const total = rRecipes.length + rDrinks.length + rRest.length + rPantry.length;
